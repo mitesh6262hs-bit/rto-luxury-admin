@@ -1,0 +1,60 @@
+/* app/globals.css */
+:root {
+    --bg-primary: #0c0e14;
+    --bg-secondary: #12161f;
+    --bg-card: #1a1f2e;
+    --bg-card-hover: #232b3f;
+    --bg-input: #0f1420;
+    --border-color: #2a3452;
+    --gold: #d4af37;
+    --gold-light: #f0d080;
+    --green: #10b981;
+    --red: #ef4444;
+    --blue: #3b82f6;
+    --purple: #8b5cf6;
+    --text-primary: #f0ece4;
+    --text-secondary: #a8a0b0;
+    --text-muted: #6a6a7a;
+    --shadow-gold: 0 0 40px rgba(212, 175, 55, 0.06);
+    --radius: 16px;
+    --radius-sm: 10px;
+    --transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: var(--font-inter), -apple-system, sans-serif;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    min-height: 100vh;
+    overflow-x: hidden;
+    -webkit-tap-highlight-color: transparent;
+}
+
+::-webkit-scrollbar {
+    width: 4px;
+}
+::-webkit-scrollbar-track {
+    background: var(--bg-secondary);
+}
+::-webkit-scrollbar-thumb {
+    background: var(--gold);
+    border-radius: 10px;
+}
+
+/* Import all component styles */
+@import './components/TopBar.module.css';
+@import './components/Sidebar.module.css';
+@import './components/DeviceCard.module.css';
+@import './components/FavouritesCatalog.module.css';
+@import './components/CredentialsCatalog.module.css';
+@import './components/BackupPanel.module.css';
+@import './components/AnalyticsPanel.module.css';
+@import './components/SmsModal.module.css';
+@import './components/Toast.module.css';
+@import './components/MobileNav.module.css';

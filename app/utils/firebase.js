@@ -1,31 +1,22 @@
-
-// app/utils/firebase.js
-import { initializeApp } from 'firebase/app';
-import { getDatabase } from 'firebase/database';
-import { getAnalytics, isSupported } from 'firebase/analytics';
+import { initializeApp, getApps, getApp } from 'firebase/app';
+import { getFirestore } from 'firebase/firestore';
+import { getAuth } from 'firebase/auth';
+import { getStorage } from 'firebase/storage';
 
 const firebaseConfig = {
-    apiKey: "AIzaSyAzStFCeODQmVbydsq1yxPHryz-cqM8lrU",
-    authDomain: "hello4211.firebaseapp.com",
-    databaseURL: "https://hello4211-default-rtdb.firebaseio.com",
-    projectId: "hello4211",
-    storageBucket: "hello4211.firebasestorage.app",
-    messagingSenderId: "11131576643",
-    appId: "1:11131576643:web:64e4153cee7cb7847e4ff6"
+  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
+  measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID,
 };
 
 // Initialize Firebase
-const app = initializeApp(firebaseConfig);
-const database = getDatabase(app);
+const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
+const db = getFirestore(app);
+const auth = getAuth(app);
+const storage = getStorage(app);
 
-// Initialize Analytics only on client side
-let analytics = null;
-if (typeof window !== 'undefined') {
-    isSupported().then(yes => {
-        if (yes) {
-            analytics = getAnalytics(app);
-        }
-    });
-}
-
-export { app, database, analytics };
+export { app, db, auth, storage };

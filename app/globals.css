@@ -1,60 +1,44 @@
-/* app/globals.css */
-:root {
-    --bg-primary: #0c0e14;
-    --bg-secondary: #12161f;
-    --bg-card: #1a1f2e;
-    --bg-card-hover: #232b3f;
-    --bg-input: #0f1420;
-    --border-color: #2a3452;
-    --gold: #d4af37;
-    --gold-light: #f0d080;
-    --green: #10b981;
-    --red: #ef4444;
-    --blue: #3b82f6;
-    --purple: #8b5cf6;
-    --text-primary: #f0ece4;
-    --text-secondary: #a8a0b0;
-    --text-muted: #6a6a7a;
-    --shadow-gold: 0 0 40px rgba(212, 175, 55, 0.06);
-    --radius: 16px;
-    --radius-sm: 10px;
-    --transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-}
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
+/* Custom global styles */
 * {
-    margin: 0;
-    padding: 0;
-    box-sizing: border-box;
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
 }
 
 body {
-    font-family: var(--font-inter), -apple-system, sans-serif;
-    background: var(--bg-primary);
-    color: var(--text-primary);
-    min-height: 100vh;
-    overflow-x: hidden;
-    -webkit-tap-highlight-color: transparent;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+  background: #f3f4f6;
+  color: #1f2937;
 }
 
+/* Dark mode support */
+@media (prefers-color-scheme: dark) {
+  body {
+    background: #111827;
+    color: #f9fafb;
+  }
+}
+
+/* Smooth transitions */
+* {
+  transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+
+/* Scrollbar styling */
 ::-webkit-scrollbar {
-    width: 4px;
+  width: 8px;
 }
 ::-webkit-scrollbar-track {
-    background: var(--bg-secondary);
+  background: #f1f1f1;
 }
 ::-webkit-scrollbar-thumb {
-    background: var(--gold);
-    border-radius: 10px;
+  background: #888;
+  border-radius: 4px;
 }
-
-/* Import all component styles */
-@import './components/TopBar.module.css';
-@import './components/Sidebar.module.css';
-@import './components/DeviceCard.module.css';
-@import './components/FavouritesCatalog.module.css';
-@import './components/CredentialsCatalog.module.css';
-@import './components/BackupPanel.module.css';
-@import './components/AnalyticsPanel.module.css';
-@import './components/SmsModal.module.css';
-@import './components/Toast.module.css';
-@import './components/MobileNav.module.css';
+::-webkit-scrollbar-thumb:hover {
+  background: #555;
+}

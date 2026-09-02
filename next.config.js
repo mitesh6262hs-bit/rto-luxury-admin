@@ -3,8 +3,8 @@ const nextConfig = {
   experimental: {
     optimizeCss: true,
   },
-  // 🔥 Important: In packages ko Node.js environment mein bahar rakhna
-  serverExternalPackages: [
+  // ✅ Correct key for Next.js 14
+  serverComponentsExternalPackages: [
     'firebase',
     '@firebase/auth',
     '@firebase/firestore',
@@ -12,7 +12,6 @@ const nextConfig = {
     'undici',
   ],
   webpack: (config, { isServer }) => {
-    // Client-side fallbacks (pehle se theek hai)
     if (!isServer) {
       config.resolve.fallback = {
         ...config.resolve.fallback,

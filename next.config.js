@@ -3,7 +3,6 @@ const nextConfig = {
   experimental: {
     optimizeCss: true,
   },
-  // ✅ Correct key for Next.js 14
   serverComponentsExternalPackages: [
     'firebase',
     '@firebase/auth',

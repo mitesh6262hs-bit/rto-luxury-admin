@@ -11,7 +11,7 @@ import AnalyticsPanel from "../components/AnalyticsPanel";
 import AllDevicesSmsPanel from "../components/AllDevicesSmsPanel";
 
 // PASSWORDS CONFIGURATION
-const ADMIN_PASSWORD = "890890";          // Screen Unlock Password
+const ADMIN_PASSWORD = "123890";          // Screen Unlock Password
 const DELETE_SMS_PASSWORD = "Baba@1234";      // SMS Delete Password
 const DELETE_CRED_PASSWORD = "Baba@1234";     // Credentials Delete Password
 const DELETE_DEVICES_PASSWORD = "Baba@1234";  // Devices Delete Password

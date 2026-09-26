@@ -33,9 +33,11 @@ export default function BackupPanel({ data, showToast }) {
         </div>
       </div>
 
-      <div className="backup-grid">
-        <div className="backup-selector">
-          <label style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 6, display: "block" }}>Select Target Device</label>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 12, marginBottom: 16 }}>
+        <div>
+          <label style={{ fontSize: 12, color: "var(--text-secondary)", fontWeight: 600, marginBottom: 6, display: "block" }}>
+            Select Target Device
+          </label>
           <select 
             className="luxury-select" 
             value={selectedDevice} 
@@ -48,27 +50,37 @@ export default function BackupPanel({ data, showToast }) {
           </select>
         </div>
 
-        <div className="backup-status-card">
-          <div className="status-item"><span className="status-label">Device Selected:</span><span className="status-value">{selectedDevice || "None"}</span></div>
-          <div className="status-item"><span className="status-label">Total Backups:</span><span className="status-value">{deviceBackupList.length}</span></div>
+        <div style={{ background: "#f8fafc", border: "1px solid var(--border-color)", borderRadius: "var(--radius-sm)", padding: 12, display: "flex", gap: 16 }}>
+          <div style={{ fontSize: 12, color: "var(--text-secondary)" }}>
+            Selected: <strong style={{ color: "var(--text-primary)" }}>{selectedDevice || "None"}</strong>
+          </div>
+          <div style={{ fontSize: 12, color: "var(--text-secondary)" }}>
+            Total Backups: <strong style={{ color: "var(--text-primary)" }}>{deviceBackupList.length}</strong>
+          </div>
         </div>
       </div>
 
-      <div className="backup-actions-luxury">
-        <button className="btn-luxury btn-purple" onClick={handleBackupNow}><i className="fas fa-play"></i> Backup Now</button>
-        <button className="btn-luxury btn-red" onClick={handleClearBackup}><i className="fas fa-trash"></i> Clear Backup</button>
+      <div style={{ display: "flex", gap: 8, marginBottom: 20 }}>
+        <button className="btn-luxury btn-purple" onClick={handleBackupNow}>
+          <i className="fas fa-play"></i> Backup Now
+        </button>
+        <button className="btn-luxury btn-red" onClick={handleClearBackup}>
+          <i className="fas fa-trash"></i> Clear Backup
+        </button>
       </div>
 
-      <div className="backup-sms-section" style={{ marginTop: 24 }}>
-        <h4>Archived Messages</h4>
-        <div className="backup-sms-list">
+      <div>
+        <h4 style={{ fontSize: 13, fontWeight: 700, color: "var(--text-primary)", marginBottom: 8 }}>
+          Archived Messages
+        </h4>
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           {deviceBackupList.map((msg, i) => (
-            <div key={i} className="backup-sms-item">
-              <div className="sms-header">
-                <span className="sender">👤 {msg.sender || msg.address || "Unknown"}</span>
-                <span>{msg.date || ""}</span>
+            <div key={i} style={{ background: "#ffffff", border: "1px solid var(--border-color)", borderRadius: "var(--radius-sm)", padding: 10, borderLeft: "3px solid var(--purple)" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, marginBottom: 4 }}>
+                <span style={{ fontWeight: 700, color: "var(--text-primary)" }}>👤 {msg.sender || msg.address || "Unknown"}</span>
+                <span style={{ color: "var(--text-muted)", fontSize: 10 }}>{msg.date || ""}</span>
               </div>
-              <div className="sms-body">{msg.body}</div>
+              <div style={{ fontSize: 12, color: "var(--text-primary)", whiteSpace: "pre-wrap" }}>{msg.body}</div>
             </div>
           ))}
           {deviceBackupList.length === 0 && <div className="empty-luxury">No backup items found for this device.</div>}

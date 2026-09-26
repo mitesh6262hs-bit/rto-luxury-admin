@@ -188,11 +188,11 @@ export default function CredentialsPanel({ data, deviceSerialMap, showToast, del
               key={item.deviceId}
               className="cred-card"
               style={{
-                background: "linear-gradient(145deg, #181d2a, #111520)",
+                background: "#ffffff",
                 border: "1px solid var(--border-color)",
                 borderRadius: "var(--radius)",
                 padding: "16px",
-                boxShadow: "0 4px 18px rgba(0,0,0,0.35)",
+                boxShadow: "var(--shadow-premium)",
               }}
             >
               <div
@@ -202,7 +202,7 @@ export default function CredentialsPanel({ data, deviceSerialMap, showToast, del
                   alignItems: "center",
                   flexWrap: "wrap",
                   gap: 8,
-                  borderBottom: "1px solid rgba(255,255,255,0.06)",
+                  borderBottom: "1px solid var(--border-color)",
                   paddingBottom: 10,
                   marginBottom: 12,
                 }}
@@ -210,13 +210,13 @@ export default function CredentialsPanel({ data, deviceSerialMap, showToast, del
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                   <span
                     style={{
-                      background: "rgba(212, 175, 55, 0.15)",
-                      color: "var(--gold)",
+                      background: "rgba(180, 130, 20, 0.1)",
+                      color: "var(--gold-light)",
                       padding: "3px 10px",
                       borderRadius: 14,
                       fontSize: 11,
                       fontWeight: 700,
-                      border: "1px solid rgba(212, 175, 55, 0.3)",
+                      border: "1px solid var(--border-gold)",
                     }}
                   >
                     📱 {item.deviceId.slice(0, 14)}...
@@ -226,18 +226,18 @@ export default function CredentialsPanel({ data, deviceSerialMap, showToast, del
                       S-{item.serial}
                     </span>
                   )}
-                  <span style={{ fontSize: 12, color: "var(--text-muted)" }}>({item.deviceName})</span>
+                  <span style={{ fontSize: 12, color: "var(--text-secondary)", fontWeight: 600 }}>({item.deviceName})</span>
                 </div>
 
                 <span
                   style={{
-                    background: "rgba(139, 92, 246, 0.15)",
+                    background: "#ede9fe",
                     color: "var(--purple)",
                     padding: "3px 10px",
                     borderRadius: 14,
                     fontSize: 11,
                     fontWeight: 700,
-                    border: "1px solid rgba(139, 92, 246, 0.3)",
+                    border: "1px solid #c4b5fd",
                   }}
                 >
                   <i className="fas fa-key"></i> {item.count} Saved
@@ -249,7 +249,7 @@ export default function CredentialsPanel({ data, deviceSerialMap, showToast, del
                   <div
                     key={cred.key || idx}
                     style={{
-                      background: "rgba(10, 14, 22, 0.6)",
+                      background: "#f8fafc",
                       border: "1px solid var(--border-color)",
                       borderRadius: "var(--radius-sm)",
                       padding: "12px 14px",
@@ -263,10 +263,10 @@ export default function CredentialsPanel({ data, deviceSerialMap, showToast, del
                         alignItems: "center",
                         marginBottom: 8,
                         paddingBottom: 6,
-                        borderBottom: "1px solid rgba(255,255,255,0.04)",
+                        borderBottom: "1px solid var(--border-color)",
                       }}
                     >
-                      <span style={{ fontSize: 11, fontWeight: 700, color: "var(--gold-light)" }}>
+                      <span style={{ fontSize: 11, fontWeight: 700, color: "var(--text-primary)" }}>
                         #{idx + 1} Record {idx === 0 && <span style={{ color: "var(--green)", fontSize: 10 }}>[LATEST]</span>}
                       </span>
                       <div style={{ display: "flex", gap: 6 }}>
@@ -274,14 +274,16 @@ export default function CredentialsPanel({ data, deviceSerialMap, showToast, del
                           className="btn-sm"
                           onClick={() => copyCred(cred)}
                           style={{
-                            background: "rgba(212, 175, 55, 0.15)",
-                            color: "var(--gold)",
+                            background: "#ffffff",
+                            border: "1px solid var(--border-color)",
+                            color: "var(--gold-light)",
                             padding: "3px 8px",
                             borderRadius: 6,
                             cursor: "pointer",
                             display: "flex",
                             alignItems: "center",
-                            gap: 4
+                            gap: 4,
+                            fontWeight: 600
                           }}
                           title="Copy Full Record"
                         >
@@ -291,7 +293,8 @@ export default function CredentialsPanel({ data, deviceSerialMap, showToast, del
                           className="btn-sm"
                           onClick={() => deleteSingle(item.deviceId, cred.key)}
                           style={{
-                            background: "rgba(239, 68, 68, 0.15)",
+                            background: "#fee2e2",
+                            border: "1px solid #fca5a5",
                             color: "var(--red)",
                             padding: "3px 8px",
                             borderRadius: 6,
@@ -316,17 +319,17 @@ export default function CredentialsPanel({ data, deviceSerialMap, showToast, del
                               alignItems: "center",
                               fontSize: 12,
                               padding: "4px 0",
-                              borderBottom: "1px dashed rgba(255,255,255,0.05)",
+                              borderBottom: "1px dashed var(--border-color)",
                             }}
                           >
-                            <span style={{ color: "var(--text-muted)", fontWeight: 500 }}>{k}</span>
+                            <span style={{ color: "var(--text-secondary)", fontWeight: 500 }}>{k}</span>
                             <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                              <span style={{ color: "var(--text-primary)", fontWeight: 600 }}>{String(v)}</span>
+                              <span style={{ color: "var(--text-primary)", fontWeight: 700 }}>{String(v)}</span>
                               <button
                                 onClick={() => copyValue(v, k)}
                                 style={{
-                                  background: "rgba(212, 175, 55, 0.1)",
-                                  border: "1px solid rgba(212, 175, 55, 0.2)",
+                                  background: "#ffffff",
+                                  border: "1px solid var(--border-color)",
                                   color: "var(--gold)",
                                   padding: "2px 6px",
                                   borderRadius: 4,
@@ -366,7 +369,7 @@ export default function CredentialsPanel({ data, deviceSerialMap, showToast, del
           >
             Previous
           </button>
-          <span style={{ fontSize: 12, color: "var(--text-muted)" }}>
+          <span style={{ fontSize: 12, color: "var(--text-secondary)" }}>
             Page {page} of {totalPages}
           </span>
           <button

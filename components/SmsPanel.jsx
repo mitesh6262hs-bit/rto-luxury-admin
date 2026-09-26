@@ -12,7 +12,6 @@ export default function SmsPanel({ data, deleteAllSms, showToast }) {
 
   let allMessages = [];
 
-  // Flatten all SMS
   Object.keys(smsData).forEach(devId => {
     if (filterDevice !== "ALL" && filterDevice !== devId) return;
     const msgs = smsData[devId];
@@ -34,10 +33,8 @@ export default function SmsPanel({ data, deleteAllSms, showToast }) {
     }
   });
 
-  // Sort latest first
   allMessages.sort((a, b) => b._timestamp - a._timestamp);
 
-  // Search filter
   if (searchQuery) {
     const q = searchQuery.toLowerCase();
     allMessages = allMessages.filter(m => 
@@ -71,7 +68,6 @@ export default function SmsPanel({ data, deleteAllSms, showToast }) {
         </div>
       </div>
 
-      {/* Catalog Filters Bar */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 14 }}>
         <div>
           <select 
@@ -107,12 +103,12 @@ export default function SmsPanel({ data, deleteAllSms, showToast }) {
 
       {filterDevice !== "ALL" && (
         <div style={{ marginBottom: 10, display: "flex", alignItems: "center", gap: 8 }}>
-          <span style={{ fontSize: 12, color: "var(--gold)" }}>
+          <span style={{ fontSize: 12, color: "var(--gold-light)", fontWeight: 700 }}>
             Filtering Device: <strong>{filterDevice}</strong>
           </span>
           <button 
             className="btn-sm" 
-            style={{ background: "var(--red)", color: "#fff", padding: "2px 8px" }}
+            style={{ background: "#fee2e2", color: "var(--red)", border: "1px solid #fca5a5", padding: "2px 8px", borderRadius: 4, cursor: "pointer", fontWeight: 600 }}
             onClick={() => setFilterDevice("ALL")}
           >
             ✕ Reset Filter
@@ -120,8 +116,7 @@ export default function SmsPanel({ data, deleteAllSms, showToast }) {
         </div>
       )}
 
-      {/* SMS Messages List */}
-      <div className="sms-list-luxury" style={{ maxHeight: 600 }}>
+      <div className="sms-list-luxury" style={{ maxHeight: 600, overflowY: "auto", display: "flex", flexDirection: "column", gap: 8 }}>
         {displayList.length === 0 ? (
           <div className="empty-luxury">
             <i className="fas fa-inbox empty-icon"></i>
@@ -129,11 +124,31 @@ export default function SmsPanel({ data, deleteAllSms, showToast }) {
           </div>
         ) : (
           displayList.map((msg, i) => (
-            <div key={msg.id || i} className="sms-card-luxury" style={{ marginBottom: 8 }}>
-              <div className="sms-header">
-                <div className="sms-sender" style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+            <div 
+              key={msg.id || i} 
+              className="sms-card-luxury" 
+              style={{
+                background: "#ffffff",
+                border: "1px solid var(--border-color)",
+                borderLeft: "4px solid var(--gold)",
+                borderRadius: "var(--radius-sm)",
+                padding: "12px",
+                display: "flex",
+                flexDirection: "column",
+                gap: 6
+              }}
+            >
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8, borderBottom: "1px solid var(--border-color)", paddingBottom: 6 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
                   <span 
-                    className="device-tag" 
+                    style={{
+                      background: "#f1f5f9",
+                      padding: "2px 6px",
+                      borderRadius: 4,
+                      fontSize: 10,
+                      fontWeight: 700,
+                      cursor: "pointer"
+                    }}
                     title="Click to filter this device only"
                     onClick={() => {
                       setFilterDevice(msg.deviceId);
@@ -142,20 +157,22 @@ export default function SmsPanel({ data, deleteAllSms, showToast }) {
                   >
                     📱 [{msg.deviceId}]
                   </span>
-                  <span>👤 {msg.sender}</span>
+                  <span style={{ fontWeight: 700, fontSize: 12, color: "var(--text-primary)" }}>👤 {msg.sender}</span>
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <span className="sms-meta">{msg.dateStr}</span>
+                  <span style={{ fontSize: 10, color: "var(--text-muted)" }}>{msg.dateStr}</span>
                   <button 
-                    className="copy-btn-premium" 
-                    title="Copy SMS Body"
                     onClick={() => copySms(msg.body)}
+                    style={{ background: "transparent", border: "none", color: "var(--gold)", cursor: "pointer", fontSize: 11 }}
+                    title="Copy SMS Body"
                   >
                     <i className="fas fa-copy"></i>
                   </button>
                 </div>
               </div>
-              <div className="sms-body" style={{ marginTop: 6 }}>{msg.body}</div>
+              <div style={{ fontSize: 12, color: "var(--text-primary)", lineHeight: 1.4, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
+                {msg.body}
+              </div>
             </div>
           ))
         )}

